@@ -2885,19 +2885,22 @@ async function migrateLocalStorage() {
   const oldGrowth      = JSON.parse(localStorage.getItem('dsgrow_growth')      || '[]');
 
   const hasOld = oldChildren.length || oldAssessments.length || oldGrowth.length;
+  console.log('[migrate] children:', oldChildren.length, 'assessments:', oldAssessments.length, 'growth:', oldGrowth.length);
   if (!hasOld) return;
 
   try {
     if (oldChildren.length) {
-      await supa.from('children').upsert(
+      const res = await supa.from('children').upsert(
         oldChildren.map(r => ({ ...r, user_id: uid })), { onConflict: 'id' }
       );
+      console.log('[migrate] children result:', res);
       CACHE.children = oldChildren;
     }
     if (oldAssessments.length) {
-      await supa.from('assessments').upsert(
+      const res2 = await supa.from('assessments').upsert(
         oldAssessments.map(r => ({ ...r, user_id: uid })), { onConflict: 'id' }
       );
+      console.log('[migrate] assessments result:', res2);
       CACHE.assessments = oldAssessments;
     }
     if (oldGrowth.length) {
@@ -2943,15 +2946,11 @@ function showApp(user) {
     fallback.textContent = (user.name?.[0] || '?').toUpperCase();
   }
 
-  // Load data from Supabase before rendering
-  // Migrate any leftover localStorage data to Supabase first
-  loadAllData().then(async () => {
-    await migrateLocalStorage();
-    init();
-  }).catch(err => {
-    console.error('Supabase load failed:', err);
-    migrateLocalStorage().finally(() => init());
-  });
+  // Migrate localStorage → Supabase first, then load fresh from Supabase
+  migrateLocalStorage()
+    .then(() => loadAllData())
+    .then(() => init())
+    .catch(err => { console.error('Init error:', err); init(); });
 }
 
 function setupGIS() {
