@@ -7,7 +7,6 @@
 <!-- ⚠️  Ganti 1099379056633-v7e3kc9gtpmbkv011g5k2cdlid038vv9.apps.googleusercontent.com dengan Client ID dari Google Cloud Console -->
 <meta name="google-signin-client_id" content="1099379056633-v7e3kc9gtpmbkv011g5k2cdlid038vv9.apps.googleusercontent.com">
 <script src="https://accounts.google.com/gsi/client" async></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -1040,10 +1039,42 @@
 // ═══════════════════════════════════════════════════════════
 //  DATA MODEL
 // ═══════════════════════════════════════════════════════════
-// ─── SUPABASE ─────────────────────────────────────────────
-const SUPABASE_URL  = 'https://fbdhbkvwfwjqwsnbkcti.supabase.co';
-const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZiZGhia3Z3ZndqcXdzbmJrY3RpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwMDUzNzMsImV4cCI6MjA5MTU4MTM3M30.76kqDbJO4_H_FopVZHDbOI0p_Ms63kr3p8j7e7aqM58';
-const supa = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// ─── SUPABASE REST API (no library needed) ─────────────────
+const SUPABASE_URL = 'https://fbdhbkvwfwjqwsnbkcti.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZiZGhia3Z3ZndqcXdzbmJrY3RpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwMDUzNzMsImV4cCI6MjA5MTU4MTM3M30.76kqDbJO4_H_FopVZHDbOI0p_Ms63kr3p8j7e7aqM58';
+
+const SUPA_HEADERS = {
+  'apikey': SUPABASE_KEY,
+  'Authorization': `Bearer ${SUPABASE_KEY}`,
+  'Content-Type': 'application/json',
+};
+
+async function supaSelect(table, filters = {}) {
+  const url = new URL(`${SUPABASE_URL}/rest/v1/${table}`);
+  url.searchParams.set('select', '*');
+  Object.entries(filters).forEach(([k, v]) => url.searchParams.set(k, `eq.${v}`));
+  const res = await fetch(url, { headers: SUPA_HEADERS });
+  if (!res.ok) { const e = await res.json(); console.error(`supaSelect ${table}:`, e); return []; }
+  return res.json();
+}
+
+async function supaUpsert(table, rows) {
+  if (!rows.length) return;
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+    method: 'POST',
+    headers: { ...SUPA_HEADERS, 'Prefer': 'resolution=merge-duplicates' },
+    body: JSON.stringify(rows),
+  });
+  if (!res.ok) { const e = await res.json(); console.error(`supaUpsert ${table}:`, e); }
+}
+
+async function supaDelete(table, ids) {
+  if (!ids.length) return;
+  const url = new URL(`${SUPABASE_URL}/rest/v1/${table}`);
+  url.searchParams.set('id', `in.(${ids.join(',')})`);
+  const res = await fetch(url, { method: 'DELETE', headers: SUPA_HEADERS });
+  if (!res.ok) { const e = await res.json(); console.error(`supaDelete ${table}:`, e); }
+}
 
 // In-memory cache — DB reads stay synchronous (no refactor needed)
 const CACHE = { children: [], assessments: [], growthData: [] };
@@ -1051,79 +1082,52 @@ const CACHE = { children: [], assessments: [], growthData: [] };
 function getUserId() { return getStoredUser()?.id || null; }
 
 async function loadAllData() {
-  const uid = getUserId();
-  if (!uid) return;
+  const uid = getUserId(); if (!uid) return;
   const [c, a, g] = await Promise.all([
-    supa.from('children').select('*').eq('user_id', uid),
-    supa.from('assessments').select('*').eq('user_id', uid),
-    supa.from('growth_data').select('*').eq('user_id', uid),
+    supaSelect('children',    { user_id: uid }),
+    supaSelect('assessments', { user_id: uid }),
+    supaSelect('growth_data', { user_id: uid }),
   ]);
-  if (c.error) console.error('children load:', c.error);
-  if (a.error) console.error('assessments load:', a.error);
-  if (g.error) console.error('growth load:', g.error);
-
-  CACHE.children    = c.data || [];
-  CACHE.assessments = (a.data || []).map(r => ({
-    ...r, milestones: r.milestones || {}
-  }));
-  CACHE.growthData  = (g.data || []).map(r => ({
+  CACHE.children    = c;
+  CACHE.assessments = a.map(r => ({ ...r, milestones: r.milestones || {} }));
+  CACHE.growthData  = g.map(r => ({
     id: r.id, child_id: r.child_id, date: r.date,
     ageMo: r.age_mo, height: r.height, weight: r.weight,
     hc: r.hc, bmi: r.bmi, measurer: r.measurer,
     note: r.note, created_at: r.created_at,
   }));
+  console.log('[load] children:', c.length, 'assessments:', a.length, 'growth:', g.length);
 }
 
 async function syncChildren(data) {
   const uid = getUserId(); if (!uid) return;
-  const prev = await supa.from('children').select('id').eq('user_id', uid);
-  const prevIds = (prev.data || []).map(r => r.id);
-  const newIds  = data.map(r => r.id);
-  const toDelete = prevIds.filter(id => !newIds.includes(id));
-  if (toDelete.length) await supa.from('children').delete().in('id', toDelete);
-  if (data.length) {
-    const { error } = await supa.from('children').upsert(
-      data.map(r => ({ ...r, user_id: uid })), { onConflict: 'id' }
-    );
-    if (error) console.error('children sync:', error);
-  }
+  const prev = await supaSelect('children', { user_id: uid });
+  const toDelete = prev.map(r => r.id).filter(id => !data.find(r => r.id === id));
+  await supaDelete('children', toDelete);
+  await supaUpsert('children', data.map(r => ({ ...r, user_id: uid })));
 }
 
 async function syncAssessments(data) {
   const uid = getUserId(); if (!uid) return;
-  const prev = await supa.from('assessments').select('id').eq('user_id', uid);
-  const prevIds = (prev.data || []).map(r => r.id);
-  const newIds  = data.map(r => r.id);
-  const toDelete = prevIds.filter(id => !newIds.includes(id));
-  if (toDelete.length) await supa.from('assessments').delete().in('id', toDelete);
-  if (data.length) {
-    const { error } = await supa.from('assessments').upsert(
-      data.map(r => ({ ...r, user_id: uid })), { onConflict: 'id' }
-    );
-    if (error) console.error('assessments sync:', error);
-  }
+  const prev = await supaSelect('assessments', { user_id: uid });
+  const toDelete = prev.map(r => r.id).filter(id => !data.find(r => r.id === id));
+  await supaDelete('assessments', toDelete);
+  await supaUpsert('assessments', data.map(r => ({ ...r, user_id: uid })));
 }
 
 async function syncGrowthData(data) {
   const uid = getUserId(); if (!uid) return;
-  const prev = await supa.from('growth_data').select('id').eq('user_id', uid);
-  const prevIds = (prev.data || []).map(r => r.id);
-  const newIds  = data.map(r => r.id);
-  const toDelete = prevIds.filter(id => !newIds.includes(id));
-  if (toDelete.length) await supa.from('growth_data').delete().in('id', toDelete);
-  if (data.length) {
-    const { error } = await supa.from('growth_data').upsert(
-      data.map(r => ({
-        id: r.id, user_id: uid, child_id: r.child_id,
-        date: r.date, age_mo: r.ageMo,
-        height: r.height, weight: r.weight,
-        hc: r.hc, bmi: r.bmi,
-        measurer: r.measurer, note: r.note,
-        created_at: r.created_at,
-      })), { onConflict: 'id' }
-    );
-    if (error) console.error('growth sync:', error);
-  }
+  const prev = await supaSelect('growth_data', { user_id: uid });
+  const toDelete = prev.map(r => r.id).filter(id => !data.find(r => r.id === id));
+  await supaDelete('growth_data', toDelete);
+  await supaUpsert('growth_data', data.map(r => ({
+    id: r.id, user_id: uid, child_id: r.child_id,
+    date: r.date, age_mo: r.ageMo,
+    height: r.height, weight: r.weight,
+    hc: r.hc, bmi: r.bmi,
+    measurer: r.measurer, note: r.note,
+    created_at: r.created_at,
+  })));
 }
 
 // DB interface — reads from cache (sync), writes update cache + Supabase (async)
@@ -2890,39 +2894,33 @@ async function migrateLocalStorage() {
 
   try {
     if (oldChildren.length) {
-      const res = await supa.from('children').upsert(
-        oldChildren.map(r => ({ ...r, user_id: uid })), { onConflict: 'id' }
-      );
-      console.log('[migrate] children result:', res);
+      await supaUpsert('children', oldChildren.map(r => ({ ...r, user_id: uid })));
+      console.log('[migrate] children OK:', oldChildren.length);
       CACHE.children = oldChildren;
     }
     if (oldAssessments.length) {
-      const res2 = await supa.from('assessments').upsert(
-        oldAssessments.map(r => ({ ...r, user_id: uid })), { onConflict: 'id' }
-      );
-      console.log('[migrate] assessments result:', res2);
+      await supaUpsert('assessments', oldAssessments.map(r => ({ ...r, user_id: uid })));
+      console.log('[migrate] assessments OK:', oldAssessments.length);
       CACHE.assessments = oldAssessments;
     }
     if (oldGrowth.length) {
-      await supa.from('growth_data').upsert(
-        oldGrowth.map(r => ({
-          id: r.id, user_id: uid, child_id: r.child_id,
-          date: r.date, age_mo: r.ageMo,
-          height: r.height, weight: r.weight,
-          hc: r.hc, bmi: r.bmi,
-          measurer: r.measurer, note: r.note,
-          created_at: r.created_at,
-        })), { onConflict: 'id' }
-      );
+      await supaUpsert('growth_data', oldGrowth.map(r => ({
+        id: r.id, user_id: uid, child_id: r.child_id,
+        date: r.date, age_mo: r.ageMo,
+        height: r.height, weight: r.weight,
+        hc: r.hc, bmi: r.bmi,
+        measurer: r.measurer, note: r.note,
+        created_at: r.created_at,
+      })));
+      console.log('[migrate] growth OK:', oldGrowth.length);
       CACHE.growthData = oldGrowth;
     }
-    // Clear localStorage only after successful migration
     localStorage.removeItem('dsgrow_children');
     localStorage.removeItem('dsgrow_assessments');
     localStorage.removeItem('dsgrow_growth');
-    toast('Data lama berhasil dipindahkan ke cloud!', 'success');
+    toast('Data berhasil dipindahkan ke cloud!', 'success');
   } catch (e) {
-    console.error('Migration failed:', e);
+    console.error('[migrate] FAILED:', e);
   }
 }
 
