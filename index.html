@@ -7,6 +7,7 @@
 <!-- ⚠️  Ganti 1099379056633-v7e3kc9gtpmbkv011g5k2cdlid038vv9.apps.googleusercontent.com dengan Client ID dari Google Cloud Console -->
 <meta name="google-signin-client_id" content="1099379056633-v7e3kc9gtpmbkv011g5k2cdlid038vv9.apps.googleusercontent.com">
 <script src="https://accounts.google.com/gsi/client" async></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -1039,13 +1040,100 @@
 // ═══════════════════════════════════════════════════════════
 //  DATA MODEL
 // ═══════════════════════════════════════════════════════════
+// ─── SUPABASE ─────────────────────────────────────────────
+const SUPABASE_URL  = 'https://fbdhbkvwfwjqwsnbkcti.supabase.co';
+const SUPABASE_KEY  = 'sb_publishable_wTpNTzFprhUbej5ODCQexA_eEMTR5yB';
+const supa = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// In-memory cache — DB reads stay synchronous (no refactor needed)
+const CACHE = { children: [], assessments: [], growthData: [] };
+
+function getUserId() { return getStoredUser()?.id || null; }
+
+async function loadAllData() {
+  const uid = getUserId();
+  if (!uid) return;
+  const [c, a, g] = await Promise.all([
+    supa.from('children').select('*').eq('user_id', uid),
+    supa.from('assessments').select('*').eq('user_id', uid),
+    supa.from('growth_data').select('*').eq('user_id', uid),
+  ]);
+  if (c.error) console.error('children load:', c.error);
+  if (a.error) console.error('assessments load:', a.error);
+  if (g.error) console.error('growth load:', g.error);
+
+  CACHE.children    = c.data || [];
+  CACHE.assessments = (a.data || []).map(r => ({
+    ...r, milestones: r.milestones || {}
+  }));
+  CACHE.growthData  = (g.data || []).map(r => ({
+    id: r.id, child_id: r.child_id, date: r.date,
+    ageMo: r.age_mo, height: r.height, weight: r.weight,
+    hc: r.hc, bmi: r.bmi, measurer: r.measurer,
+    note: r.note, created_at: r.created_at,
+  }));
+}
+
+async function syncChildren(data) {
+  const uid = getUserId(); if (!uid) return;
+  const prev = await supa.from('children').select('id').eq('user_id', uid);
+  const prevIds = (prev.data || []).map(r => r.id);
+  const newIds  = data.map(r => r.id);
+  const toDelete = prevIds.filter(id => !newIds.includes(id));
+  if (toDelete.length) await supa.from('children').delete().in('id', toDelete);
+  if (data.length) {
+    const { error } = await supa.from('children').upsert(
+      data.map(r => ({ ...r, user_id: uid })), { onConflict: 'id' }
+    );
+    if (error) console.error('children sync:', error);
+  }
+}
+
+async function syncAssessments(data) {
+  const uid = getUserId(); if (!uid) return;
+  const prev = await supa.from('assessments').select('id').eq('user_id', uid);
+  const prevIds = (prev.data || []).map(r => r.id);
+  const newIds  = data.map(r => r.id);
+  const toDelete = prevIds.filter(id => !newIds.includes(id));
+  if (toDelete.length) await supa.from('assessments').delete().in('id', toDelete);
+  if (data.length) {
+    const { error } = await supa.from('assessments').upsert(
+      data.map(r => ({ ...r, user_id: uid })), { onConflict: 'id' }
+    );
+    if (error) console.error('assessments sync:', error);
+  }
+}
+
+async function syncGrowthData(data) {
+  const uid = getUserId(); if (!uid) return;
+  const prev = await supa.from('growth_data').select('id').eq('user_id', uid);
+  const prevIds = (prev.data || []).map(r => r.id);
+  const newIds  = data.map(r => r.id);
+  const toDelete = prevIds.filter(id => !newIds.includes(id));
+  if (toDelete.length) await supa.from('growth_data').delete().in('id', toDelete);
+  if (data.length) {
+    const { error } = await supa.from('growth_data').upsert(
+      data.map(r => ({
+        id: r.id, user_id: uid, child_id: r.child_id,
+        date: r.date, age_mo: r.ageMo,
+        height: r.height, weight: r.weight,
+        hc: r.hc, bmi: r.bmi,
+        measurer: r.measurer, note: r.note,
+        created_at: r.created_at,
+      })), { onConflict: 'id' }
+    );
+    if (error) console.error('growth sync:', error);
+  }
+}
+
+// DB interface — reads from cache (sync), writes update cache + Supabase (async)
 const DB = {
-  getChildren() { return JSON.parse(localStorage.getItem('dsgrow_children') || '[]'); },
-  saveChildren(data) { localStorage.setItem('dsgrow_children', JSON.stringify(data)); },
-  getAssessments() { return JSON.parse(localStorage.getItem('dsgrow_assessments') || '[]'); },
-  saveAssessments(data) { localStorage.setItem('dsgrow_assessments', JSON.stringify(data)); },
-  getGrowthData() { return JSON.parse(localStorage.getItem('dsgrow_growth') || '[]'); },
-  saveGrowthData(data) { localStorage.setItem('dsgrow_growth', JSON.stringify(data)); },
+  getChildren()         { return CACHE.children; },
+  saveChildren(data)    { CACHE.children = data;    syncChildren(data); },
+  getAssessments()      { return CACHE.assessments; },
+  saveAssessments(data) { CACHE.assessments = data; syncAssessments(data); },
+  getGrowthData()       { return CACHE.growthData; },
+  saveGrowthData(data)  { CACHE.growthData = data;  syncGrowthData(data); },
 };
 
 function uid() {
@@ -2809,7 +2897,11 @@ function showApp(user) {
     fallback.textContent = (user.name?.[0] || '?').toUpperCase();
   }
 
-  init();
+  // Load data from Supabase before rendering
+  loadAllData().then(() => init()).catch(err => {
+    console.error('Supabase load failed:', err);
+    init(); // fallback — render with empty cache
+  });
 }
 
 function setupGIS() {
