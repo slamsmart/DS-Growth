@@ -1058,14 +1058,18 @@ async function supaSelect(table, filters = {}) {
   return res.json();
 }
 
-async function supaUpsert(table, rows) {
+async function supaInsert(table, rows) {
   if (!rows.length) return;
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
     method: 'POST',
-    headers: { ...SUPA_HEADERS, 'Prefer': 'resolution=merge-duplicates' },
+    headers: { ...SUPA_HEADERS, 'Prefer': 'return=minimal' },
     body: JSON.stringify(rows),
   });
-  if (!res.ok) { const e = await res.json(); console.error(`supaUpsert ${table}:`, e); }
+  if (!res.ok) {
+    const e = await res.json();
+    console.error(`supaInsert ${table}:`, e);
+    toast(`Gagal simpan ke server (${table}): ${e?.message || e?.code || res.status}`, 'error');
+  }
 }
 
 async function supaDelete(table, ids) {
@@ -1102,25 +1106,22 @@ async function loadAllData() {
 async function syncChildren(data) {
   const uid = getUserId(); if (!uid) return;
   const prev = await supaSelect('children', { user_id: uid });
-  const toDelete = prev.map(r => r.id).filter(id => !data.find(r => r.id === id));
-  await supaDelete('children', toDelete);
-  await supaUpsert('children', data.map(r => ({ ...r, user_id: uid })));
+  if (prev.length) await supaDelete('children', prev.map(r => r.id));
+  await supaInsert('children', data.map(r => ({ ...r, user_id: uid })));
 }
 
 async function syncAssessments(data) {
   const uid = getUserId(); if (!uid) return;
   const prev = await supaSelect('assessments', { user_id: uid });
-  const toDelete = prev.map(r => r.id).filter(id => !data.find(r => r.id === id));
-  await supaDelete('assessments', toDelete);
-  await supaUpsert('assessments', data.map(r => ({ ...r, user_id: uid })));
+  if (prev.length) await supaDelete('assessments', prev.map(r => r.id));
+  await supaInsert('assessments', data.map(r => ({ ...r, user_id: uid })));
 }
 
 async function syncGrowthData(data) {
   const uid = getUserId(); if (!uid) return;
   const prev = await supaSelect('growth_data', { user_id: uid });
-  const toDelete = prev.map(r => r.id).filter(id => !data.find(r => r.id === id));
-  await supaDelete('growth_data', toDelete);
-  await supaUpsert('growth_data', data.map(r => ({
+  if (prev.length) await supaDelete('growth_data', prev.map(r => r.id));
+  await supaInsert('growth_data', data.map(r => ({
     id: r.id, user_id: uid, child_id: r.child_id,
     date: r.date, age_mo: r.ageMo,
     height: r.height, weight: r.weight,
@@ -2894,17 +2895,17 @@ async function migrateLocalStorage() {
 
   try {
     if (oldChildren.length) {
-      await supaUpsert('children', oldChildren.map(r => ({ ...r, user_id: uid })));
+      await supaInsert('children', oldChildren.map(r => ({ ...r, user_id: uid })));
       console.log('[migrate] children OK:', oldChildren.length);
       CACHE.children = oldChildren;
     }
     if (oldAssessments.length) {
-      await supaUpsert('assessments', oldAssessments.map(r => ({ ...r, user_id: uid })));
+      await supaInsert('assessments', oldAssessments.map(r => ({ ...r, user_id: uid })));
       console.log('[migrate] assessments OK:', oldAssessments.length);
       CACHE.assessments = oldAssessments;
     }
     if (oldGrowth.length) {
-      await supaUpsert('growth_data', oldGrowth.map(r => ({
+      await supaInsert('growth_data', oldGrowth.map(r => ({
         id: r.id, user_id: uid, child_id: r.child_id,
         date: r.date, age_mo: r.ageMo,
         height: r.height, weight: r.weight,
