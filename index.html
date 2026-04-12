@@ -2877,6 +2877,52 @@ function getStoredUser() {
   catch { return null; }
 }
 
+async function migrateLocalStorage() {
+  const uid = getUserId(); if (!uid) return;
+
+  const oldChildren    = JSON.parse(localStorage.getItem('dsgrow_children')    || '[]');
+  const oldAssessments = JSON.parse(localStorage.getItem('dsgrow_assessments') || '[]');
+  const oldGrowth      = JSON.parse(localStorage.getItem('dsgrow_growth')      || '[]');
+
+  const hasOld = oldChildren.length || oldAssessments.length || oldGrowth.length;
+  if (!hasOld) return;
+
+  try {
+    if (oldChildren.length) {
+      await supa.from('children').upsert(
+        oldChildren.map(r => ({ ...r, user_id: uid })), { onConflict: 'id' }
+      );
+      CACHE.children = oldChildren;
+    }
+    if (oldAssessments.length) {
+      await supa.from('assessments').upsert(
+        oldAssessments.map(r => ({ ...r, user_id: uid })), { onConflict: 'id' }
+      );
+      CACHE.assessments = oldAssessments;
+    }
+    if (oldGrowth.length) {
+      await supa.from('growth_data').upsert(
+        oldGrowth.map(r => ({
+          id: r.id, user_id: uid, child_id: r.child_id,
+          date: r.date, age_mo: r.ageMo,
+          height: r.height, weight: r.weight,
+          hc: r.hc, bmi: r.bmi,
+          measurer: r.measurer, note: r.note,
+          created_at: r.created_at,
+        })), { onConflict: 'id' }
+      );
+      CACHE.growthData = oldGrowth;
+    }
+    // Clear localStorage only after successful migration
+    localStorage.removeItem('dsgrow_children');
+    localStorage.removeItem('dsgrow_assessments');
+    localStorage.removeItem('dsgrow_growth');
+    toast('Data lama berhasil dipindahkan ke cloud!', 'success');
+  } catch (e) {
+    console.error('Migration failed:', e);
+  }
+}
+
 function showApp(user) {
   // Hide login, show app
   document.getElementById('login-screen').classList.add('hidden');
@@ -2897,15 +2943,14 @@ function showApp(user) {
     fallback.textContent = (user.name?.[0] || '?').toUpperCase();
   }
 
-  // Bersihkan data lama dari localStorage
-  localStorage.removeItem('dsgrow_children');
-  localStorage.removeItem('dsgrow_assessments');
-  localStorage.removeItem('dsgrow_growth');
-
   // Load data from Supabase before rendering
-  loadAllData().then(() => init()).catch(err => {
+  // Migrate any leftover localStorage data to Supabase first
+  loadAllData().then(async () => {
+    await migrateLocalStorage();
+    init();
+  }).catch(err => {
     console.error('Supabase load failed:', err);
-    init(); // fallback — render with empty cache
+    migrateLocalStorage().finally(() => init());
   });
 }
 
