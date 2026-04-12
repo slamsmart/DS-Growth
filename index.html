@@ -636,7 +636,8 @@
     <div class="sidebar-footer">
       <strong>DS-GROW v1.0</strong><br>
       Berbasis NDSS, WHO, Kemenkes RI<br>
-      &copy; 2025 Khusus Down Syndrome
+      &copy; 2025 Khusus Down Syndrome<br><br>
+      <button onclick="runDiagnostic()" style="width:100%;padding:6px;background:#FFD600;color:#000;border:none;border-radius:4px;font-weight:700;cursor:pointer;font-size:11px;">🔍 Test Koneksi DB</button>
     </div>
   </nav>
 
@@ -2863,6 +2864,43 @@ function renderGoogleButton() {
     container.style.display = 'none';
     if (fallback) fallback.style.display = 'flex';
   }
+}
+
+async function runDiagnostic() {
+  const user = getStoredUser();
+  const uid  = getUserId();
+  let msg = '=== DIAGNOSTIC ===\n';
+  msg += `Login: ${user ? user.name + ' (' + user.email + ')' : 'TIDAK LOGIN'}\n`;
+  msg += `User ID: ${uid || 'NULL ← MASALAH!'}\n\n`;
+
+  if (!uid) {
+    alert(msg + 'MASALAH: Tidak ada user ID. Coba logout lalu login Google ulang.');
+    return;
+  }
+
+  msg += 'Mencoba insert test ke Supabase...\n';
+  const testRow = { id: 'diag-test-' + Date.now(), user_id: uid, nama: 'TEST_DIAGNOSTIC', tgl_lahir: '2020-01-01' };
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/children`, {
+      method: 'POST',
+      headers: { ...SUPA_HEADERS, 'Prefer': 'return=minimal' },
+      body: JSON.stringify([testRow]),
+    });
+    if (res.ok) {
+      msg += `INSERT OK (status ${res.status})\n`;
+      msg += 'Supabase bisa menerima data!\n\n';
+      msg += 'Kemungkinan masalah: sync dipanggil sebelum login selesai.';
+      // Hapus test row
+      await fetch(`${SUPABASE_URL}/rest/v1/children?id=eq.${testRow.id}`, { method: 'DELETE', headers: SUPA_HEADERS });
+    } else {
+      const err = await res.json();
+      msg += `INSERT GAGAL (status ${res.status})\n`;
+      msg += `Error: ${JSON.stringify(err, null, 2)}`;
+    }
+  } catch (e) {
+    msg += `NETWORK ERROR: ${e.message}`;
+  }
+  alert(msg);
 }
 
 function signOut() {
