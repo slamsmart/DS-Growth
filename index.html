@@ -2897,6 +2897,11 @@ function showApp(user) {
     fallback.textContent = (user.name?.[0] || '?').toUpperCase();
   }
 
+  // Bersihkan data lama dari localStorage
+  localStorage.removeItem('dsgrow_children');
+  localStorage.removeItem('dsgrow_assessments');
+  localStorage.removeItem('dsgrow_growth');
+
   // Load data from Supabase before rendering
   loadAllData().then(() => init()).catch(err => {
     console.error('Supabase load failed:', err);
