@@ -1,0 +1,2870 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DS-GROW | Monitoring Tumbuh Kembang Down Syndrome</title>
+<!-- ⚠️  Ganti 1099379056633-v7e3kc9gtpmbkv011g5k2cdlid038vv9.apps.googleusercontent.com dengan Client ID dari Google Cloud Console -->
+<meta name="google-signin-client_id" content="1099379056633-v7e3kc9gtpmbkv011g5k2cdlid038vv9.apps.googleusercontent.com">
+<script src="https://accounts.google.com/gsi/client" async></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  :root {
+    --black: #0D0D0D;
+    --yellow: #FFD600;
+    --red: #E50000;
+    --white: #FFFFFF;
+    --gray-50: #FAFAFA;
+    --gray-100: #F4F4F4;
+    --gray-200: #E8E8E8;
+    --gray-300: #C8C8C8;
+    --gray-500: #888888;
+    --gray-600: #6B6B6B;
+    --gray-700: #444444;
+    --yellow-dark: #C9A900;
+    --red-dark: #B30000;
+    --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: var(--font);
+    background: var(--gray-100);
+    color: var(--black);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ─── SIDEBAR ─────────────────────────────────────────────── */
+  #app { display: flex; min-height: 100vh; }
+  #sidebar {
+    width: 240px; min-width: 240px;
+    background: var(--black);
+    display: flex; flex-direction: column;
+    position: fixed; top: 0; left: 0; bottom: 0;
+    z-index: 100;
+    transition: transform .3s;
+  }
+  .sidebar-logo {
+    padding: 24px 20px 16px;
+    border-bottom: 2px solid var(--yellow);
+  }
+  .sidebar-logo h1 {
+    font-size: 22px; font-weight: 900;
+    color: var(--yellow);
+    letter-spacing: -0.5px;
+  }
+  .sidebar-logo h1 span { color: var(--red); }
+  .sidebar-logo p { font-size: 11px; color: var(--gray-300); margin-top: 3px; text-transform: uppercase; letter-spacing: 1px; }
+  .nav-section { padding: 16px 0 0; flex: 1; overflow-y: auto; }
+  .nav-label { padding: 6px 20px; font-size: 11px; color: var(--gray-500); text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; }
+  .nav-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 20px; cursor: pointer;
+    font-size: 13px; font-weight: 600;
+    color: var(--gray-300);
+    transition: background .15s, color .15s;
+    border-left: 3px solid transparent;
+    position: relative;
+  }
+  .nav-item:hover { background: rgba(255,214,0,.08); color: var(--yellow); }
+  .nav-item.active { background: rgba(255,214,0,.12); color: var(--yellow); border-left-color: var(--yellow); }
+  .nav-item .nav-icon { width: 18px; text-align: center; font-size: 15px; flex-shrink: 0; }
+  .sidebar-footer {
+    padding: 16px 20px;
+    border-top: 1px solid #222;
+    font-size: 10px; color: var(--gray-500);
+    line-height: 1.5;
+  }
+
+  /* ─── MAIN CONTENT ─────────────────────────────────────────── */
+  #main {
+    margin-left: 240px;
+    flex: 1; display: flex; flex-direction: column;
+    min-height: 100vh;
+  }
+  #topbar {
+    background: var(--white);
+    border-bottom: 2px solid var(--yellow);
+    padding: 0 28px;
+    height: 58px; min-height: 58px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 50;
+  }
+  #topbar h2 { font-size: 16px; font-weight: 800; color: var(--black); }
+  #topbar .topbar-right { display: flex; align-items: center; gap: 16px; }
+  .child-selector {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--gray-100); border: 1.5px solid var(--gray-200);
+    padding: 6px 12px; border-radius: 6px; cursor: pointer;
+    font-size: 12px; font-weight: 600; color: var(--black);
+  }
+  .child-selector select {
+    background: none; border: none; outline: none;
+    font-size: 12px; font-weight: 600; cursor: pointer;
+    color: var(--black); font-family: var(--font);
+    max-width: 160px;
+  }
+  .btn-add {
+    background: var(--yellow); color: var(--black);
+    border: none; padding: 8px 14px; border-radius: 6px;
+    font-size: 12px; font-weight: 800; cursor: pointer;
+    display: flex; align-items: center; gap: 6px;
+    transition: background .15s;
+  }
+  .btn-add:hover { background: var(--yellow-dark); }
+  #page-content { padding: 28px; flex: 1; }
+
+  /* ─── VIEWS ────────────────────────────────────────────────── */
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* ─── STAT CARDS ───────────────────────────────────────────── */
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 28px; }
+  .stat-card {
+    background: var(--white); border: 2px solid var(--gray-200);
+    border-radius: 10px; padding: 20px;
+    position: relative; overflow: hidden;
+  }
+  .stat-card.yellow { border-left: 5px solid var(--yellow); }
+  .stat-card.red { border-left: 5px solid var(--red); }
+  .stat-card.black { border-left: 5px solid var(--black); }
+  .stat-card.green { border-left: 5px solid #00C851; }
+  .stat-card-icon {
+    width: 40px; height: 40px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; margin-bottom: 12px;
+  }
+  .stat-card.yellow .stat-card-icon { background: rgba(255,214,0,.15); }
+  .stat-card.red .stat-card-icon { background: rgba(229,0,0,.1); }
+  .stat-card.black .stat-card-icon { background: rgba(13,13,13,.08); }
+  .stat-card.green .stat-card-icon { background: rgba(0,200,81,.12); }
+  .stat-value { font-size: 28px; font-weight: 900; color: var(--black); line-height: 1; }
+  .stat-label { font-size: 11px; font-weight: 600; color: var(--gray-600); margin-top: 4px; text-transform: uppercase; letter-spacing: .5px; }
+  .stat-sub { font-size: 11px; color: var(--gray-600); margin-top: 6px; }
+
+  /* ─── CHART GRID ───────────────────────────────────────────── */
+  .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+  .chart-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+  .chart-card {
+    background: var(--white); border: 2px solid var(--gray-200);
+    border-radius: 10px; padding: 22px;
+  }
+  .chart-card.wide { grid-column: span 2; }
+  .chart-card.full { grid-column: 1 / -1; }
+  .chart-title {
+    font-size: 13px; font-weight: 800; color: var(--black);
+    margin-bottom: 4px; display: flex; align-items: center; gap: 8px;
+  }
+  .chart-title .badge {
+    background: var(--yellow); color: var(--black);
+    font-size: 11px; font-weight: 900; padding: 2px 7px; border-radius: 3px;
+    text-transform: uppercase; letter-spacing: .5px;
+  }
+  .chart-subtitle { font-size: 11px; color: var(--gray-600); margin-bottom: 18px; }
+  .chart-wrap { position: relative; height: 260px; }
+  .chart-wrap.tall { height: 320px; }
+  .chart-wrap.sm { height: 200px; }
+
+  /* ─── DOMAIN BADGES ────────────────────────────────────────── */
+  .domain-strip { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
+  .domain-chip {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 14px; border-radius: 8px;
+    font-size: 12px; font-weight: 700; cursor: pointer;
+    border: 2px solid transparent;
+    transition: all .15s;
+  }
+  .domain-chip.active, .domain-chip:hover { border-color: var(--black); }
+  .domain-chip .score { font-size: 18px; font-weight: 900; }
+
+  /* ─── PROGRESS BAR ─────────────────────────────────────────── */
+  .progress-row { margin-bottom: 14px; }
+  .progress-header { display: flex; justify-content: space-between; margin-bottom: 5px; }
+  .progress-label { font-size: 12px; font-weight: 700; color: var(--black); }
+  .progress-pct { font-size: 12px; font-weight: 900; }
+  .progress-bar-bg {
+    height: 10px; background: var(--gray-200); border-radius: 5px; overflow: hidden;
+  }
+  .progress-bar-fill { height: 100%; border-radius: 5px; transition: width .6s ease; }
+
+  /* ─── MILESTONE TABLE ──────────────────────────────────────── */
+  .milestone-section { margin-bottom: 28px; }
+  .section-title {
+    font-size: 14px; font-weight: 900; color: var(--black);
+    padding: 10px 16px; border-left: 4px solid var(--yellow);
+    background: var(--gray-50); margin-bottom: 2px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .section-title .domain-score { font-size: 22px; font-weight: 900; color: var(--red); }
+  .milestone-table { width: 100%; border-collapse: collapse; background: var(--white); }
+  .milestone-table th {
+    background: var(--black); color: var(--yellow);
+    font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px;
+    padding: 10px 14px; text-align: left;
+  }
+  .milestone-table td { padding: 10px 14px; font-size: 12px; border-bottom: 1px solid var(--gray-100); vertical-align: top; }
+  .milestone-table tr:hover td { background: var(--gray-50); }
+  .status-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px; border-radius: 4px;
+    font-size: 11px; font-weight: 800; white-space: nowrap;
+  }
+  .status-badge.tercapai { background: #00C85120; color: #007A30; }
+  .status-badge.berkembang { background: #FFD60025; color: #5C4B00; }
+  .status-badge.belum { background: #E5000015; color: #B00000; }
+  .age-range { font-size: 11px; color: var(--gray-600); font-weight: 600; }
+
+  /* ─── FORMS ────────────────────────────────────────────────── */
+  .form-card {
+    background: var(--white); border: 2px solid var(--gray-200);
+    border-radius: 10px; padding: 24px; margin-bottom: 20px;
+  }
+  .form-title { font-size: 15px; font-weight: 900; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+  .form-title span {
+    background: var(--yellow); color: var(--black);
+    font-size: 10px; font-weight: 900; padding: 3px 8px; border-radius: 4px;
+    text-transform: uppercase;
+  }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .form-grid.cols3 { grid-template-columns: 1fr 1fr 1fr; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group.full { grid-column: span 2; }
+  .form-label { font-size: 11px; font-weight: 800; color: var(--black); text-transform: uppercase; letter-spacing: .5px; }
+  .form-input, .form-select, .form-textarea {
+    padding: 9px 12px; border: 2px solid var(--gray-200);
+    border-radius: 6px; font-size: 13px; font-family: var(--font);
+    color: var(--black); background: var(--gray-50);
+    transition: border-color .15s;
+    outline: none;
+  }
+  .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--yellow); background: var(--white); }
+  .form-textarea { min-height: 80px; resize: vertical; }
+  .btn { padding: 10px 20px; border-radius: 6px; font-size: 13px; font-weight: 800; cursor: pointer; border: 2px solid transparent; transition: all .15s; font-family: var(--font); }
+  .btn-primary { background: var(--yellow); color: var(--black); border-color: var(--yellow); }
+  .btn-primary:hover { background: var(--yellow-dark); border-color: var(--yellow-dark); }
+  .btn-danger { background: var(--red); color: var(--white); border-color: var(--red); }
+  .btn-danger:hover { background: var(--red-dark); }
+  .btn-outline { background: transparent; color: var(--black); border-color: var(--gray-200); }
+  .btn-outline:hover { border-color: var(--black); background: var(--gray-50); }
+  .btn-sm { padding: 6px 12px; font-size: 11px; }
+  .btn-group { display: flex; gap: 10px; margin-top: 20px; }
+
+  /* ─── ASSESSMENT RADIO ─────────────────────────────────────── */
+  .assess-row {
+    display: flex; align-items: center;
+    padding: 12px 0; border-bottom: 1px solid var(--gray-100);
+    gap: 16px;
+  }
+  .assess-row:last-child { border-bottom: none; }
+  .assess-info { flex: 1; }
+  .assess-name { font-size: 13px; font-weight: 700; color: var(--black); }
+  .assess-age { font-size: 11px; color: var(--gray-600); margin-top: 2px; font-weight: 600; }
+  .assess-source { font-size: 11px; color: var(--gray-600); font-style: italic; }
+  .radio-group { display: flex; gap: 8px; }
+  .radio-btn {
+    padding: 5px 12px; border-radius: 5px;
+    font-size: 11px; font-weight: 800; cursor: pointer;
+    border: 2px solid var(--gray-200); background: var(--white);
+    transition: all .1s; color: var(--gray-600);
+  }
+  .radio-btn:hover { border-color: var(--gray-300); }
+  .radio-btn.selected.tercapai { background: #00C851; border-color: #00C851; color: var(--white); }
+  .radio-btn.selected.berkembang { background: var(--yellow); border-color: var(--yellow); color: var(--black); }
+  .radio-btn.selected.belum { background: var(--red); border-color: var(--red); color: var(--white); }
+
+  /* ─── TIMELINE ─────────────────────────────────────────────── */
+  .timeline { position: relative; padding-left: 28px; }
+  .timeline::before { content:''; position:absolute; left:8px; top:0; bottom:0; width:2px; background:var(--gray-200); }
+  .timeline-item { position: relative; margin-bottom: 20px; }
+  .timeline-dot {
+    position: absolute; left: -24px; top: 6px;
+    width: 14px; height: 14px; border-radius: 50%;
+    border: 2px solid var(--white);
+    background: var(--yellow);
+  }
+  .timeline-dot.red { background: var(--red); }
+  .timeline-dot.black { background: var(--black); }
+  .timeline-card {
+    background: var(--white); border: 2px solid var(--gray-200);
+    border-radius: 8px; padding: 14px 16px;
+  }
+  .timeline-date { font-size: 11px; font-weight: 800; color: var(--gray-600); text-transform: uppercase; margin-bottom: 4px; }
+  .timeline-title { font-size: 13px; font-weight: 800; color: var(--black); }
+  .timeline-body { font-size: 12px; color: var(--gray-700); margin-top: 6px; }
+  .timeline-scores { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .domain-score-chip {
+    font-size: 11px; font-weight: 700; padding: 3px 10px;
+    border-radius: 4px; background: var(--gray-100);
+    border: 1.5px solid var(--gray-200);
+  }
+
+  /* ─── PROFILE CARDS ────────────────────────────────────────── */
+  .profile-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+  .profile-card {
+    background: var(--white); border: 2px solid var(--gray-200);
+    border-radius: 10px; padding: 24px; cursor: pointer;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .profile-card:hover { border-color: var(--yellow); box-shadow: 0 4px 12px rgba(255,214,0,.15); }
+  .profile-card.selected { border-color: var(--yellow); border-width: 3px; }
+  .profile-avatar {
+    width: 60px; height: 60px; border-radius: 10px;
+    background: var(--black); display: flex; align-items: center; justify-content: center;
+    font-size: 26px; margin-bottom: 14px;
+    border: 3px solid var(--yellow);
+  }
+  .profile-name { font-size: 16px; font-weight: 900; color: var(--black); }
+  .profile-meta { font-size: 11px; color: var(--gray-600); margin-top: 4px; }
+  .profile-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .profile-tag { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 4px; border: 1.5px solid var(--gray-200); color: var(--gray-700); }
+  .profile-actions { display: flex; gap: 8px; margin-top: 16px; }
+
+  /* ─── REFERENCE ────────────────────────────────────────────── */
+  .ref-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .ref-card {
+    background: var(--white); border: 2px solid var(--gray-200); border-radius: 10px;
+    padding: 0; overflow: hidden;
+  }
+  .ref-header {
+    background: var(--black); color: var(--yellow);
+    padding: 14px 18px; font-size: 13px; font-weight: 900;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .ref-body { padding: 16px; }
+  .ref-milestone-row {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 8px 0; border-bottom: 1px solid var(--gray-100); font-size: 12px;
+  }
+  .ref-milestone-row:last-child { border-bottom: none; }
+  .ref-age { font-weight: 800; color: var(--red); min-width: 60px; font-size: 11px; }
+  .ref-text { color: var(--black); flex: 1; }
+  .ref-typical { color: var(--gray-600); font-style: italic; font-size: 11px; margin-top: 2px; }
+
+  /* ─── REPORT ───────────────────────────────────────────────── */
+  .report-header {
+    background: var(--black); color: var(--white);
+    padding: 28px; border-radius: 10px; margin-bottom: 24px;
+    display: flex; align-items: center; gap: 24px;
+  }
+  .report-logo {
+    width: 64px; height: 64px; background: var(--yellow);
+    border-radius: 10px; display: flex; align-items: center;
+    justify-content: center; font-size: 28px; font-weight: 900;
+    color: var(--black); flex-shrink: 0; font-style: italic;
+  }
+  .report-meta h2 { font-size: 20px; font-weight: 900; color: var(--yellow); }
+  .report-meta p { font-size: 12px; color: var(--gray-300); margin-top: 4px; }
+  .report-section { margin-bottom: 24px; }
+  .report-section-title {
+    font-size: 13px; font-weight: 900; text-transform: uppercase;
+    letter-spacing: 1px; color: var(--black);
+    padding: 8px 14px; background: var(--gray-100);
+    border-left: 4px solid var(--red); margin-bottom: 12px;
+  }
+  .recommendation-item {
+    display: flex; gap: 12px; padding: 10px 14px;
+    background: var(--white); border: 1.5px solid var(--gray-200);
+    border-radius: 6px; margin-bottom: 8px; font-size: 12px;
+    align-items: flex-start;
+  }
+  .recommendation-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+
+  /* ─── EMPTY STATE ──────────────────────────────────────────── */
+  .empty-state {
+    text-align: center; padding: 60px 20px;
+    color: var(--gray-600);
+  }
+  .empty-state .empty-icon { font-size: 48px; margin-bottom: 16px; opacity: .5; }
+  .empty-state h3 { font-size: 16px; font-weight: 800; color: var(--gray-700); margin-bottom: 8px; }
+  .empty-state p { font-size: 13px; }
+
+  /* ─── MODAL ────────────────────────────────────────────────── */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.6);
+    z-index: 200; display: none; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--white); border-radius: 12px;
+    width: 100%; max-width: 560px;
+    max-height: 90vh; overflow-y: auto;
+    border: 2px solid var(--yellow);
+  }
+  .modal-header {
+    padding: 20px 24px; border-bottom: 2px solid var(--yellow);
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--black); border-radius: 10px 10px 0 0;
+  }
+  .modal-title { font-size: 15px; font-weight: 900; color: var(--yellow); }
+  .modal-close {
+    background: none; border: none; color: var(--gray-300);
+    font-size: 20px; cursor: pointer; padding: 4px;
+    transition: color .15s;
+  }
+  .modal-close:hover { color: var(--white); }
+  .modal-body { padding: 24px; }
+
+  /* ─── TOAST ────────────────────────────────────────────────── */
+  #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 999; display: flex; flex-direction: column; gap: 8px; }
+  .toast {
+    background: var(--black); color: var(--white);
+    padding: 12px 18px; border-radius: 8px;
+    font-size: 13px; font-weight: 600;
+    border-left: 4px solid var(--yellow);
+    animation: slideIn .3s ease;
+    max-width: 300px;
+  }
+  .toast.success { border-left-color: #00C851; }
+  .toast.error { border-left-color: var(--red); }
+  @keyframes slideIn { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+  /* ─── TAGS ─────────────────────────────────────────────────── */
+  .tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; }
+  .tag-yellow { background: rgba(255,214,0,.2); color: var(--black); }
+  .tag-red { background: rgba(229,0,0,.12); color: var(--red-dark); }
+  .tag-black { background: rgba(13,13,13,.08); color: var(--black); }
+  .tag-green { background: rgba(0,200,81,.15); color: #007A30; }
+
+  /* ─── MISC ──────────────────────────────────────────────────── */
+  .divider { height: 1px; background: var(--gray-200); margin: 20px 0; }
+  .text-red { color: var(--red); }
+  .text-yellow { color: #7A6200; }
+  .text-muted { color: var(--gray-600); font-size: 12px; }
+  .fw-900 { font-weight: 900; }
+  .mb-4 { margin-bottom: 16px; }
+  .mb-6 { margin-bottom: 24px; }
+  .flex { display: flex; }
+  .items-center { align-items: center; }
+  .gap-2 { gap: 8px; }
+  .source-cite {
+    background: var(--gray-50); border: 1.5px solid var(--gray-200);
+    border-radius: 6px; padding: 10px 14px; margin-top: 16px;
+    font-size: 11px; color: var(--gray-600);
+  }
+  .source-cite strong { color: var(--black); }
+
+  /* ─── PDF BAR ──────────────────────────────────────────── */
+  .pdf-action-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--white); border: 2px solid var(--gray-200);
+    border-radius: 8px; padding: 10px 16px; margin-bottom: 18px;
+  }
+  .pdf-action-bar .pdf-bar-left { display: flex; align-items: center; gap: 10px; }
+  .pdf-action-bar .pdf-bar-title { font-size: 12px; font-weight: 800; color: var(--black); }
+  .pdf-action-bar .pdf-bar-sub { font-size: 11px; color: var(--gray-600); margin-top: 1px; }
+  .btn-pdf {
+    background: var(--black); color: var(--yellow);
+    border: 2px solid var(--black); padding: 8px 16px;
+    border-radius: 6px; font-size: 12px; font-weight: 800;
+    cursor: pointer; display: flex; align-items: center; gap: 7px;
+    transition: background .15s; font-family: var(--font);
+  }
+  .btn-pdf:hover { background: #2A2A2A; }
+  .pdf-spinner {
+    display: none; align-items: center; gap: 8px;
+    font-size: 12px; font-weight: 700; color: var(--gray-500);
+  }
+  .pdf-spinner.active { display: flex; }
+  @keyframes spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+  .spin-icon { display: inline-block; animation: spin 1s linear infinite; }
+
+  /* ─── AUTH / LOGIN SCREEN ───────────────────────────────── */
+  #login-screen {
+    position: fixed; inset: 0; z-index: 9999;
+    background: var(--gray-100);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  #login-screen.hidden { display: none; }
+  .login-card {
+    background: var(--white);
+    border: 2px solid var(--gray-200);
+    border-radius: 16px;
+    padding: 48px 40px;
+    max-width: 420px; width: 100%;
+    text-align: center;
+    box-shadow: 0 8px 32px rgba(0,0,0,.08);
+  }
+  .login-brand {
+    display: inline-flex; align-items: center; gap: 10px;
+    margin-bottom: 8px;
+  }
+  .login-brand-icon {
+    width: 48px; height: 48px;
+    background: var(--black); border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    border: 3px solid var(--yellow);
+    font-size: 22px; font-weight: 900; color: var(--yellow);
+    font-style: italic; font-family: var(--font);
+  }
+  .login-brand-name { font-size: 26px; font-weight: 900; color: var(--black); letter-spacing: -1px; }
+  .login-brand-name span { color: var(--red); }
+  .login-tagline { font-size: 13px; color: var(--gray-600); margin-bottom: 32px; line-height: 1.5; }
+  .login-divider { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+  .login-divider hr { flex: 1; border: none; border-top: 1px solid var(--gray-200); }
+  .login-divider span { font-size: 11px; color: var(--gray-600); font-weight: 600; white-space: nowrap; }
+  .btn-google {
+    display: flex; align-items: center; justify-content: center; gap: 12px;
+    width: 100%; padding: 13px 20px;
+    background: var(--white); border: 2px solid var(--gray-200);
+    border-radius: 8px; cursor: pointer;
+    font-size: 14px; font-weight: 700; color: var(--black);
+    font-family: var(--font);
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .btn-google:hover { border-color: var(--gray-300); box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+  .btn-google svg { width: 20px; height: 20px; flex-shrink: 0; }
+  .login-footer { margin-top: 28px; font-size: 11px; color: var(--gray-600); line-height: 1.6; }
+
+  /* ─── TOPBAR USER AVATAR ─────────────────────────────────── */
+  .topbar-user {
+    display: flex; align-items: center; gap: 10px;
+    padding: 5px 10px; border-radius: 8px;
+    cursor: pointer; border: 1.5px solid var(--gray-200);
+    background: var(--gray-100);
+    transition: border-color .15s;
+    font-size: 12px; font-weight: 700; color: var(--black);
+  }
+  .topbar-user:hover { border-color: var(--gray-300); }
+  .topbar-avatar {
+    width: 28px; height: 28px; border-radius: 50%;
+    object-fit: cover; border: 2px solid var(--yellow);
+    flex-shrink: 0;
+  }
+  .topbar-avatar-fallback {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--black); border: 2px solid var(--yellow);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; color: var(--yellow); font-weight: 900;
+    flex-shrink: 0;
+  }
+  .btn-logout {
+    background: none; border: 1.5px solid var(--gray-200);
+    border-radius: 6px; padding: 5px 10px;
+    font-size: 11px; font-weight: 700; color: var(--gray-600);
+    cursor: pointer; font-family: var(--font);
+    transition: all .15s;
+  }
+  .btn-logout:hover { border-color: var(--red); color: var(--red); }
+
+  @media print {
+    #sidebar, #topbar, .no-print { display: none !important; }
+    #main { margin-left: 0; }
+    #page-content { padding: 0; }
+    .view { display: block !important; }
+    .view:not(.active) { display: none !important; }
+  }
+</style>
+</head>
+<body>
+<!-- ═══════════ LOGIN SCREEN ═══════════ -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-brand">
+      <div class="login-brand-icon">DS</div>
+      <div class="login-brand-name">DS<span>·</span>GROW</div>
+    </div>
+    <p class="login-tagline">Monitoring Tumbuh Kembang Down Syndrome<br>Berbasis NDSS · WHO · Kemenkes RI</p>
+
+    <div class="login-divider">
+      <hr><span>Masuk dengan akun Google</span><hr>
+    </div>
+
+    <!-- Google renders the official button here -->
+    <div id="google-btn-container" style="display:flex;justify-content:center;margin-bottom:4px;min-height:44px;"></div>
+    <!-- Fallback manual button (shown if GIS fails to render) -->
+    <button class="btn-google" id="btn-google-fallback" onclick="signInWithGoogle()" style="display:none">
+      <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+        <path fill="none" d="M0 0h48v48H0z"/>
+      </svg>
+      Lanjutkan dengan Google
+    </button>
+
+    <p class="login-footer">
+      Dengan masuk, Anda menyetujui penggunaan data<br>
+      hanya untuk keperluan monitoring tumbuh kembang.
+    </p>
+  </div>
+</div>
+
+<div id="app">
+  <!-- SIDEBAR -->
+  <nav id="sidebar">
+    <div class="sidebar-logo">
+      <h1>DS<span>·</span>GROW</h1>
+      <p>Down Syndrome Development Monitor</p>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Utama</div>
+      <div class="nav-item active" data-view="dashboard" onclick="navigate('dashboard')">
+        <span class="nav-icon">📊</span> Dashboard
+      </div>
+      <div class="nav-item" data-view="profil" onclick="navigate('profil')">
+        <span class="nav-icon">👶</span> Profil Anak
+      </div>
+      <div class="nav-item" data-view="pertumbuhan" onclick="navigate('pertumbuhan')">
+        <span class="nav-icon">📏</span> Pertumbuhan
+      </div>
+      <div class="nav-label">Penilaian</div>
+      <div class="nav-item" data-view="penilaian" onclick="navigate('penilaian')">
+        <span class="nav-icon">📋</span> Penilaian Baru
+      </div>
+      <div class="nav-item" data-view="riwayat" onclick="navigate('riwayat')">
+        <span class="nav-icon">📅</span> Riwayat Penilaian
+      </div>
+      <div class="nav-label">Analitik</div>
+      <div class="nav-item" data-view="statistik" onclick="navigate('statistik')">
+        <span class="nav-icon">📈</span> Statistik & Grafik
+      </div>
+      <div class="nav-item" data-view="laporan" onclick="navigate('laporan')">
+        <span class="nav-icon">📄</span> Laporan
+      </div>
+      <div class="nav-label">Referensi</div>
+      <div class="nav-item" data-view="referensi" onclick="navigate('referensi')">
+        <span class="nav-icon">📚</span> Panduan Milestone
+      </div>
+    </div>
+    <div class="sidebar-footer">
+      <strong>DS-GROW v1.0</strong><br>
+      Berbasis NDSS, WHO, Kemenkes RI<br>
+      &copy; 2025 Khusus Down Syndrome
+    </div>
+  </nav>
+
+  <!-- MAIN -->
+  <div id="main">
+    <div id="topbar">
+      <h2 id="page-title">Dashboard</h2>
+      <div class="topbar-right">
+        <div class="child-selector">
+          <span>👶</span>
+          <select id="child-select" onchange="onChildChange()">
+            <option value="">-- Pilih Anak --</option>
+          </select>
+        </div>
+        <button class="btn-add" onclick="openModal('modal-add-child')">
+          + Tambah Anak
+        </button>
+        <div class="topbar-user" id="topbar-user" title="Akun saya">
+          <div class="topbar-avatar-fallback" id="topbar-avatar-fallback">?</div>
+          <img id="topbar-avatar-img" class="topbar-avatar" src="" alt="foto profil" style="display:none">
+          <span id="topbar-user-name">Pengguna</span>
+        </div>
+        <button class="btn-logout" onclick="signOut()" title="Keluar">Keluar</button>
+      </div>
+    </div>
+
+    <div id="page-content">
+
+      <!-- ═══════════ DASHBOARD ═══════════ -->
+      <div id="view-dashboard" class="view active">
+        <div id="dash-empty" class="empty-state" style="display:none">
+          <div class="empty-icon">🧒</div>
+          <h3>Belum ada data anak</h3>
+          <p>Tambahkan profil anak untuk mulai memantau tumbuh kembang</p>
+          <br>
+          <button class="btn btn-primary" onclick="openModal('modal-add-child')">+ Tambah Anak Pertama</button>
+        </div>
+        <div id="dash-content">
+          <div class="pdf-action-bar no-print">
+            <div class="pdf-bar-left">
+              <div>
+                <div class="pdf-bar-title">📊 Dashboard Tumbuh Kembang</div>
+                <div class="pdf-bar-sub">Ekspor ringkasan perkembangan ke PDF</div>
+              </div>
+              <div class="pdf-spinner" id="pdf-spinner-dashboard"><span class="spin-icon">⏳</span> Membuat PDF...</div>
+            </div>
+            <button class="btn-pdf" onclick="downloadPDF('dash-content','dashboard','pdf-spinner-dashboard')">⬇ Download PDF</button>
+          </div>
+          <div class="stat-grid" id="dash-stats"></div>
+          <div class="chart-grid">
+            <div class="chart-card">
+              <div class="chart-title">Profil Perkembangan <span class="badge">Radar</span></div>
+              <div class="chart-subtitle">Pencapaian per domain perkembangan (%)</div>
+              <div class="chart-wrap"><canvas id="chart-radar"></canvas></div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-title">Kemajuan Waktu <span class="badge">Trend</span></div>
+              <div class="chart-subtitle">Skor total perkembangan dari waktu ke waktu</div>
+              <div class="chart-wrap"><canvas id="chart-trend"></canvas></div>
+            </div>
+          </div>
+          <div class="chart-grid">
+            <div class="chart-card">
+              <div class="chart-title">Distribusi Milestone <span class="badge">Status</span></div>
+              <div class="chart-subtitle">Tercapai / Berkembang / Belum per domain</div>
+              <div class="chart-wrap"><canvas id="chart-bar-domain"></canvas></div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-title">Ketercapaian Keseluruhan <span class="badge">Total</span></div>
+              <div class="chart-subtitle">Persentase milestone yang telah dicapai</div>
+              <div class="chart-wrap"><canvas id="chart-doughnut"></canvas></div>
+            </div>
+          </div>
+          <div class="chart-card" style="margin-bottom:20px">
+            <div class="chart-title">Kemajuan per Domain <span class="badge">Perbandingan</span></div>
+            <div class="chart-subtitle">Skor per domain pada setiap sesi penilaian</div>
+            <div class="chart-wrap tall"><canvas id="chart-multi-line"></canvas></div>
+          </div>
+          <div id="dash-domain-progress"></div>
+        </div>
+      </div>
+
+      <!-- ═══════════ PROFIL ═══════════ -->
+      <div id="view-profil" class="view">
+        <div class="profile-grid" id="profile-list"></div>
+        <div id="no-profile" class="empty-state" style="display:none">
+          <div class="empty-icon">👶</div>
+          <h3>Belum ada profil anak</h3>
+          <p>Klik tombol "Tambah Anak" untuk menambahkan profil</p>
+        </div>
+      </div>
+
+      <!-- ═══════════ PENILAIAN ═══════════ -->
+      <div id="view-penilaian" class="view">
+        <div id="assess-no-child" class="empty-state" style="display:none">
+          <div class="empty-icon">📋</div>
+          <h3>Pilih anak terlebih dahulu</h3>
+          <p>Gunakan dropdown di atas untuk memilih anak yang akan dinilai</p>
+        </div>
+        <div id="assess-form-wrap">
+          <div class="form-card">
+            <div class="form-title">Info Penilaian <span>Baru</span></div>
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label">Tanggal Penilaian</label>
+                <input type="date" id="assess-date" class="form-input">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Asesor / Terapis</label>
+                <input type="text" id="assess-assessor" class="form-input" placeholder="Nama terapis / orangtua">
+              </div>
+              <div class="form-group full">
+                <label class="form-label">Catatan Umum</label>
+                <textarea id="assess-notes" class="form-textarea" placeholder="Kondisi anak saat penilaian, catatan khusus..."></textarea>
+              </div>
+            </div>
+          </div>
+          <div class="domain-strip" id="domain-tab-strip"></div>
+          <div id="domain-assess-panels"></div>
+          <div class="btn-group">
+            <button class="btn btn-primary" onclick="saveAssessment()">💾 Simpan Penilaian</button>
+            <button class="btn btn-outline" onclick="navigate('riwayat')">Lihat Riwayat</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════ RIWAYAT ═══════════ -->
+      <div id="view-riwayat" class="view">
+        <div id="riwayat-empty" class="empty-state" style="display:none">
+          <div class="empty-icon">📅</div>
+          <h3>Belum ada riwayat penilaian</h3>
+          <p>Mulai penilaian pertama dari menu "Penilaian Baru"</p>
+        </div>
+        <div id="riwayat-content">
+          <div class="pdf-action-bar no-print">
+            <div class="pdf-bar-left">
+              <div>
+                <div class="pdf-bar-title">📅 Riwayat Penilaian</div>
+                <div class="pdf-bar-sub">Ekspor semua riwayat penilaian ke PDF</div>
+              </div>
+              <div class="pdf-spinner" id="pdf-spinner-riwayat"><span class="spin-icon">⏳</span> Membuat PDF...</div>
+            </div>
+            <button class="btn-pdf" onclick="downloadPDF('riwayat-content','riwayat','pdf-spinner-riwayat')">⬇ Download PDF</button>
+          </div>
+          <div class="chart-card" style="margin-bottom:20px">
+            <div class="chart-title">Rekap Penilaian</div>
+            <div id="riwayat-table-wrap"></div>
+          </div>
+          <div class="timeline" id="riwayat-timeline"></div>
+        </div>
+      </div>
+
+      <!-- ═══════════ STATISTIK ═══════════ -->
+      <div id="view-statistik" class="view">
+        <div id="stat-empty" class="empty-state" style="display:none">
+          <div class="empty-icon">📈</div>
+          <h3>Belum ada data untuk ditampilkan</h3>
+          <p>Lakukan minimal satu penilaian terlebih dahulu</p>
+        </div>
+        <div id="stat-content">
+          <div class="pdf-action-bar no-print">
+            <div class="pdf-bar-left">
+              <div>
+                <div class="pdf-bar-title">📈 Statistik &amp; Grafik</div>
+                <div class="pdf-bar-sub">Ekspor semua grafik statistik ke PDF</div>
+              </div>
+              <div class="pdf-spinner" id="pdf-spinner-statistik"><span class="spin-icon">⏳</span> Membuat PDF...</div>
+            </div>
+            <button class="btn-pdf" onclick="downloadPDF('stat-content','statistik','pdf-spinner-statistik')">⬇ Download PDF</button>
+          </div>
+          <div class="chart-grid-3" id="stat-domain-cards"></div>
+          <div class="chart-grid">
+            <div class="chart-card">
+              <div class="chart-title">Tren Motorik Kasar &amp; Halus</div>
+              <div class="chart-subtitle">Perkembangan motorik dari waktu ke waktu</div>
+              <div class="chart-wrap"><canvas id="chart-stat-motorik"></canvas></div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-title">Tren Kognitif &amp; Wicara</div>
+              <div class="chart-subtitle">Perkembangan kognitif dan komunikasi</div>
+              <div class="chart-wrap"><canvas id="chart-stat-kogwic"></canvas></div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-title">Tren Sosial &amp; Kemandirian</div>
+              <div class="chart-subtitle">Perkembangan sosial dan ADL</div>
+              <div class="chart-wrap"><canvas id="chart-stat-soskem"></canvas></div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-title">Milestone Tercapai per Domain</div>
+              <div class="chart-subtitle">Jumlah milestone berdasarkan status terakhir</div>
+              <div class="chart-wrap"><canvas id="chart-stat-stack"></canvas></div>
+            </div>
+          </div>
+          <div class="chart-card" style="margin-bottom:20px">
+            <div class="chart-title">Detail Milestone per Domain</div>
+            <div id="stat-milestone-detail"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════ LAPORAN ═══════════ -->
+      <div id="view-laporan" class="view">
+        <div id="laporan-empty" class="empty-state" style="display:none">
+          <div class="empty-icon">📄</div>
+          <h3>Pilih anak dan lakukan penilaian dulu</h3>
+          <p>Laporan akan tersedia setelah ada data penilaian</p>
+        </div>
+        <div id="laporan-content">
+          <div class="no-print" style="margin-bottom:16px;display:flex;gap:10px">
+            <button class="btn btn-primary" onclick="window.print()">🖨 Cetak Laporan</button>
+            <button class="btn btn-outline" onclick="exportCSV()">⬇ Export CSV</button>
+          </div>
+          <div id="laporan-body"></div>
+        </div>
+      </div>
+
+      <!-- ═══════════ REFERENSI ═══════════ -->
+      <div id="view-referensi" class="view">
+        <div class="form-card" style="margin-bottom:20px">
+          <div class="form-title">📚 Panduan Milestone Down Syndrome <span>Berbasis Bukti</span></div>
+          <p style="font-size:13px;color:var(--gray-700);line-height:1.6">
+            Panduan ini disusun berdasarkan penelitian dan sumber terpercaya mengenai perkembangan anak dengan Down Syndrome (Trisomi 21).
+            Rentang usia yang ditampilkan adalah perkiraan, bukan patokan kaku. Setiap anak berkembang dengan keunikannya masing-masing.
+          </p>
+          <div class="source-cite">
+            <strong>Sumber Referensi:</strong> National Down Syndrome Society (NDSS) | Down Syndrome Medical Interest Group (DSMIG) |
+            Pueschel SM (2000) | Chapman RS &amp; Hesketh LJ (2000) | Kemenkes RI – Buku KIA |
+            Denver Developmental Screening Test II | DSM-5 | WHO Developmental Milestones
+          </div>
+        </div>
+        <div class="ref-grid" id="ref-grid"></div>
+      </div>
+
+      <!-- ═══════════ PERTUMBUHAN ═══════════ -->
+      <div id="view-pertumbuhan" class="view">
+        <div id="tumbuh-no-child" class="empty-state" style="display:none">
+          <div class="empty-icon">📏</div>
+          <h3>Pilih anak terlebih dahulu</h3>
+          <p>Gunakan dropdown di atas untuk memilih anak</p>
+        </div>
+        <div id="tumbuh-content">
+          <div class="pdf-action-bar no-print">
+            <div class="pdf-bar-left">
+              <div>
+                <div class="pdf-bar-title">📏 Data Pertumbuhan</div>
+                <div class="pdf-bar-sub">Ekspor kurva TB / BB / LK ke PDF</div>
+              </div>
+              <div class="pdf-spinner" id="pdf-spinner-pertumbuhan"><span class="spin-icon">⏳</span> Membuat PDF...</div>
+            </div>
+            <button class="btn-pdf" onclick="downloadPDF('tumbuh-content','pertumbuhan','pdf-spinner-pertumbuhan')">⬇ Download PDF</button>
+          </div>
+          <!-- Summary cards -->
+          <div class="stat-grid" id="tumbuh-stats"></div>
+          <!-- Input Form -->
+          <div class="form-card" style="margin-bottom:20px">
+            <div class="form-title">+ Input Data Pertumbuhan <span>Baru</span></div>
+            <div class="form-grid cols3">
+              <div class="form-group">
+                <label class="form-label">Tanggal Ukur</label>
+                <input type="date" id="tumbuh-date" class="form-input">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Tinggi / Panjang Badan (cm)</label>
+                <input type="number" id="tumbuh-height" class="form-input" placeholder="cth: 85.5" step="0.1" min="30" max="220">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Berat Badan (kg)</label>
+                <input type="number" id="tumbuh-weight" class="form-input" placeholder="cth: 12.3" step="0.1" min="1" max="200">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Lingkar Kepala (cm) <span style="color:var(--gray-500);font-weight:400">Opsional</span></label>
+                <input type="number" id="tumbuh-hc" class="form-input" placeholder="cth: 46.5" step="0.1" min="20" max="70">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Diukur oleh</label>
+                <input type="text" id="tumbuh-measurer" class="form-input" placeholder="Nama dokter / orangtua">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Catatan</label>
+                <input type="text" id="tumbuh-note" class="form-input" placeholder="Kondisi saat pengukuran...">
+              </div>
+            </div>
+            <div class="btn-group">
+              <button class="btn btn-primary" onclick="addGrowthRecord()">💾 Simpan Data</button>
+            </div>
+          </div>
+          <!-- Percentile status box -->
+          <div id="tumbuh-percentile-box" style="margin-bottom:20px"></div>
+          <!-- Charts -->
+          <div class="chart-grid" style="margin-bottom:20px">
+            <div class="chart-card">
+              <div class="chart-title">Tinggi Badan / Usia <span class="badge">Kurva DS</span></div>
+              <div class="chart-subtitle">Data anak vs standar pertumbuhan Down Syndrome (Zemel 2015)</div>
+              <div class="chart-wrap tall"><canvas id="chart-height-age"></canvas></div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-title">Berat Badan / Usia <span class="badge">Kurva DS</span></div>
+              <div class="chart-subtitle">Data anak vs standar pertumbuhan Down Syndrome (Zemel 2015)</div>
+              <div class="chart-wrap tall"><canvas id="chart-weight-age"></canvas></div>
+            </div>
+          </div>
+          <div class="chart-grid" style="margin-bottom:20px">
+            <div class="chart-card">
+              <div class="chart-title">Lingkar Kepala / Usia <span class="badge">Kurva DS</span></div>
+              <div class="chart-subtitle">Data anak vs standar lingkar kepala DS (Zemel 2015)</div>
+              <div class="chart-wrap tall"><canvas id="chart-hc-age"></canvas></div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-title">BMI / Usia <span class="badge">Indeks Massa Tubuh</span></div>
+              <div class="chart-subtitle">BMI anak dari waktu ke waktu (kg/m²)</div>
+              <div class="chart-wrap tall"><canvas id="chart-bmi"></canvas></div>
+            </div>
+          </div>
+          <!-- History table -->
+          <div class="chart-card" style="margin-bottom:20px">
+            <div class="chart-title">Riwayat Pengukuran</div>
+            <div id="tumbuh-table"></div>
+          </div>
+          <!-- Source cite -->
+          <div class="source-cite">
+            <strong>Standar Pertumbuhan DS yang digunakan:</strong>
+            Zemel BS, et al. (2015) "Growth Charts for Children With Down Syndrome in the United States" <em>Pediatrics</em> 136(5):e1204-e1211 ·
+            Cronk C, et al. (1988) <em>Pediatrics</em> · WHO Child Growth Standards (perbandingan) ·
+            Kemenkes RI – Buku KIA. Kurva menampilkan persentil ke-3, 10, 25, 50, 75, 90, 97.
+          </div>
+        </div>
+      </div>
+
+    </div><!-- end page-content -->
+  </div><!-- end main -->
+</div><!-- end app -->
+
+<!-- MODAL: Add Child -->
+<div class="modal-overlay" id="modal-add-child">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">+ Tambah Profil Anak</div>
+      <button class="modal-close" onclick="closeModal('modal-add-child')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group full">
+          <label class="form-label">Nama Lengkap</label>
+          <input type="text" id="child-nama" class="form-input" placeholder="Nama anak">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tanggal Lahir</label>
+          <input type="date" id="child-tgl-lahir" class="form-input">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Jenis Kelamin</label>
+          <select id="child-jk" class="form-select">
+            <option value="L">Laki-laki</option>
+            <option value="P">Perempuan</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tipe Down Syndrome</label>
+          <select id="child-tipe" class="form-select">
+            <option value="Trisomi 21 Standar">Trisomi 21 Standar (95%)</option>
+            <option value="Translokasi">Translokasi (&lt;5%)</option>
+            <option value="Mosaic">Mosaic (1-2%)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Kondisi Penyerta</label>
+          <input type="text" id="child-kondisi" class="form-input" placeholder="Opsional (Jantung, Tiroid, dll)">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nama Terapis</label>
+          <input type="text" id="child-terapis" class="form-input" placeholder="Nama terapis utama">
+        </div>
+        <div class="form-group full">
+          <label class="form-label">Catatan Awal</label>
+          <textarea id="child-catatan" class="form-textarea" placeholder="Riwayat singkat, kondisi saat ini..."></textarea>
+        </div>
+      </div>
+      <div class="btn-group">
+        <button class="btn btn-primary" onclick="addChild()">Simpan Profil</button>
+        <button class="btn btn-outline" onclick="closeModal('modal-add-child')">Batal</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Detail Assessment -->
+<div class="modal-overlay" id="modal-assess-detail">
+  <div class="modal" style="max-width:700px">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-detail-title">Detail Penilaian</div>
+      <button class="modal-close" onclick="closeModal('modal-assess-detail')">✕</button>
+    </div>
+    <div class="modal-body" id="modal-detail-body"></div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  DATA MODEL
+// ═══════════════════════════════════════════════════════════
+const DB = {
+  getChildren() { return JSON.parse(localStorage.getItem('dsgrow_children') || '[]'); },
+  saveChildren(data) { localStorage.setItem('dsgrow_children', JSON.stringify(data)); },
+  getAssessments() { return JSON.parse(localStorage.getItem('dsgrow_assessments') || '[]'); },
+  saveAssessments(data) { localStorage.setItem('dsgrow_assessments', JSON.stringify(data)); },
+  getGrowthData() { return JSON.parse(localStorage.getItem('dsgrow_growth') || '[]'); },
+  saveGrowthData(data) { localStorage.setItem('dsgrow_growth', JSON.stringify(data)); },
+};
+
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  MILESTONE DATABASE (DS-Specific)
+// ═══════════════════════════════════════════════════════════
+const DOMAINS = [
+  { id:'motorik_kasar', label:'Motorik Kasar', icon:'🏃', color:'#E50000' },
+  { id:'motorik_halus', label:'Motorik Halus', icon:'✋', color:'#FFD600' },
+  { id:'wicara',        label:'Wicara & Bahasa', icon:'💬', color:'#0D0D0D' },
+  { id:'kognitif',      label:'Kognitif', icon:'🧠', color:'#2563EB' },
+  { id:'sosial',        label:'Sosial-Emosional', icon:'❤️', color:'#16A34A' },
+  { id:'kemandirian',   label:'Kemandirian (ADL)', icon:'⭐', color:'#7C3AED' },
+];
+
+const MILESTONES = {
+  motorik_kasar: [
+    { id:'mk01', name:'Kontrol kepala (tengkurap)', ds_age:'3–9 bln', typical:'2–4 bln', source:'NDSS 2020', desc:'Dapat mengangkat kepala minimal 45° saat tengkurap' },
+    { id:'mk02', name:'Berguling (perut ke punggung)', ds_age:'6–18 bln', typical:'3–5 bln', source:'NDSS 2020', desc:'Berguling dari posisi perut ke punggung secara mandiri' },
+    { id:'mk03', name:'Duduk dengan bantuan', ds_age:'6–12 bln', typical:'4–6 bln', source:'Pueschel 2000', desc:'Dapat duduk dengan bantuan / sandaran tanpa ambruk' },
+    { id:'mk04', name:'Duduk mandiri', ds_age:'10–24 bln', typical:'6–8 bln', source:'Pueschel 2000', desc:'Duduk tegak tanpa bantuan minimal 30 detik' },
+    { id:'mk05', name:'Merangkak / Mobilitas lantai', ds_age:'14–18 bln', typical:'7–10 bln', source:'NDSS 2020', desc:'Merangkak atau bergerak maju di lantai dengan tangan dan lutut (bisa bervariasi, sebagian anak DS tidak merangkak)' },
+    { id:'mk06', name:'Berdiri dengan pegangan', ds_age:'12–24 bln', typical:'8–10 bln', source:'Pueschel 2000', desc:'Berdiri tegak dengan berpegangan pada furnitur/tangan orang dewasa' },
+    { id:'mk07', name:'Berjalan mandiri', ds_age:'18–42 bln', typical:'9–15 bln', source:'NDSS 2020', desc:'Berjalan tanpa bantuan minimal 10 langkah berurutan' },
+    { id:'mk08', name:'Berlari (gaya kasar)', ds_age:'3–5 thn', typical:'18 bln', source:'DSMIG 2021', desc:'Berlari meski dengan gaya khas DS (kaki lebar, telapak penuh)' },
+    { id:'mk09', name:'Naik tangga bergantian', ds_age:'5–7 thn', typical:'3 thn', source:'DSMIG 2021', desc:'Naik tangga menggunakan kaki bergantian (bukan satu per satu)' },
+    { id:'mk10', name:'Melompat di tempat', ds_age:'4–6 thn', typical:'24 bln', source:'Denver II', desc:'Kedua kaki terangkat dari lantai secara bersamaan' },
+    { id:'mk11', name:'Menangkap bola besar', ds_age:'5–8 thn', typical:'3–4 thn', source:'Denver II', desc:'Menangkap bola sebesar kepalan tangan orang dewasa yang dilempar lembut' },
+    { id:'mk12', name:'Bersepeda roda tiga', ds_age:'4–8 thn', typical:'3 thn', source:'NDSS 2020', desc:'Mengayuh sepeda roda tiga secara mandiri' },
+  ],
+  motorik_halus: [
+    { id:'mh01', name:'Menggenggam jari orang dewasa', ds_age:'2–6 bln', typical:'0–2 bln', source:'NDSS 2020', desc:'Refleks menggenggam kuat pada jari yang disentuhkan ke telapak tangan' },
+    { id:'mh02', name:'Meraih dan memegang mainan', ds_age:'4–8 bln', typical:'3–4 bln', source:'Pueschel 2000', desc:'Meraih dan memegang benda/mainan yang ada di depannya' },
+    { id:'mh03', name:'Memindah benda antar tangan', ds_age:'8–12 bln', typical:'5–6 bln', source:'Pueschel 2000', desc:'Memindahkan benda dari satu tangan ke tangan lainnya secara aktif' },
+    { id:'mh04', name:'Pincer grasp (jepit halus)', ds_age:'15–24 bln', typical:'9–10 bln', source:'NDSS 2020', desc:'Mengambil benda kecil menggunakan ibu jari dan jari telunjuk' },
+    { id:'mh05', name:'Memasukkan benda ke wadah', ds_age:'15–24 bln', typical:'10–12 bln', source:'Denver II', desc:'Memasukkan balok kecil ke dalam kotak/botol bermulut lebar' },
+    { id:'mh06', name:'Menumpuk 2 balok', ds_age:'18–30 bln', typical:'12–14 bln', source:'Denver II', desc:'Menumpuk 2 balok secara berurutan tanpa menjatuhkan' },
+    { id:'mh07', name:'Menumpuk 6+ balok', ds_age:'3–5 thn', typical:'24 bln', source:'Denver II', desc:'Menumpuk 6 balok atau lebih' },
+    { id:'mh08', name:'Menggambar garis vertikal/horizontal', ds_age:'30–48 bln', typical:'18–24 bln', source:'DSMIG 2021', desc:'Menggambar garis lurus (vertikal atau horizontal) dengan crayon/pensil' },
+    { id:'mh09', name:'Menggunting garis lurus', ds_age:'5–7 thn', typical:'3.5 thn', source:'Denver II', desc:'Menggunting sepanjang garis lurus dengan gunting anak' },
+    { id:'mh10', name:'Menggambar lingkaran', ds_age:'4–6 thn', typical:'3 thn', source:'Denver II', desc:'Menggambar bentuk lingkaran yang dapat dikenali' },
+    { id:'mh11', name:'Mewarnai dalam garis', ds_age:'6–9 thn', typical:'4 thn', source:'DSMIG 2021', desc:'Mewarnai gambar dengan melewati garis kurang dari 50%' },
+    { id:'mh12', name:'Menulis nama sendiri', ds_age:'7–12 thn', typical:'5–6 thn', source:'NDSS 2020', desc:'Menulis nama pertama dengan huruf yang dapat dibaca' },
+  ],
+  wicara: [
+    { id:'wi01', name:'Babbling (ba-ba, da-da, ma-ma)', ds_age:'9–18 bln', typical:'6 bln', source:'Chapman 2000', desc:'Mengucapkan kombinasi konsonan-vokal berulang (bukan kata bermakna)' },
+    { id:'wi02', name:'Kata pertama bermakna', ds_age:'18–36 bln', typical:'12 bln', source:'NDSS 2020', desc:'Mengucapkan satu kata dengan makna yang konsisten (mis: "mam" untuk makan, "da" untuk ayah)' },
+    { id:'wi03', name:'10 kata kosakata', ds_age:'3–4 thn', typical:'18 bln', source:'Chapman 2000', desc:'Memiliki dan menggunakan minimal 10 kata berbeda secara spontan' },
+    { id:'wi04', name:'Frasa 2 kata', ds_age:'3–5 thn', typical:'18–24 bln', source:'NDSS 2020', desc:'Menggabungkan 2 kata bermakna (mis: "minta minum", "baju merah")' },
+    { id:'wi05', name:'Kalimat 3–4 kata', ds_age:'5–7 thn', typical:'2–3 thn', source:'Chapman 2000', desc:'Menggunakan kalimat pendek 3–4 kata dalam komunikasi sehari-hari' },
+    { id:'wi06', name:'Mengikuti perintah 2 langkah', ds_age:'3–5 thn', typical:'2 thn', source:'Denver II', desc:'Melakukan 2 instruksi berurutan tanpa diulang (mis: "ambil bola lalu taruh di meja")' },
+    { id:'wi07', name:'Menjawab pertanyaan sederhana', ds_age:'6–8 thn', typical:'3 thn', source:'DSMIG 2021', desc:'Menjawab pertanyaan "apa", "siapa", "di mana" dengan tepat' },
+    { id:'wi08', name:'Percakapan 2+ giliran', ds_age:'6–10 thn', typical:'3–4 thn', source:'Chapman 2000', desc:'Mempertahankan topik percakapan minimal 2 giliran tanya-jawab' },
+    { id:'wi09', name:'Bercerita pendek', ds_age:'8–12 thn', typical:'4–5 thn', source:'NDSS 2020', desc:'Menceritakan kejadian/cerita pendek dengan urutan yang dapat dipahami' },
+  ],
+  kognitif: [
+    { id:'ko01', name:'Object permanence', ds_age:'12–18 bln', typical:'8–10 bln', source:'Wishart 1993', desc:'Mencari mainan yang disembunyikan di depannya (mengerti objek tetap ada meski tidak terlihat)' },
+    { id:'ko02', name:'Sebab-akibat sederhana', ds_age:'18–24 bln', typical:'10–12 bln', source:'Wishart 1993', desc:'Mengerti hubungan sebab-akibat (memencet tombol = suara keluar)' },
+    { id:'ko03', name:'Mengenal nama benda umum', ds_age:'2–4 thn', typical:'18 bln', source:'NDSS 2020', desc:'Menunjuk atau mengambil benda ketika disebutkan namanya (minimal 5 benda)' },
+    { id:'ko04', name:'Memilih dari 2 pilihan', ds_age:'2–3 thn', typical:'15–18 bln', source:'DSMIG 2021', desc:'Memilih salah satu dari 2 opsi yang ditawarkan secara verbal/visual' },
+    { id:'ko05', name:'Mencocokkan warna dasar', ds_age:'3–5 thn', typical:'2–3 thn', source:'Denver II', desc:'Mencocokkan 4 warna dasar (merah, kuning, biru, hijau)' },
+    { id:'ko06', name:'Mencocokkan bentuk dasar', ds_age:'3–5 thn', typical:'2–3 thn', source:'Denver II', desc:'Mencocokkan lingkaran, kotak, segitiga' },
+    { id:'ko07', name:'Mengenal nama warna', ds_age:'4–7 thn', typical:'3 thn', source:'NDSS 2020', desc:'Menyebutkan nama minimal 4 warna dengan benar ketika ditunjuk' },
+    { id:'ko08', name:'Menghitung 1–5', ds_age:'5–7 thn', typical:'3–4 thn', source:'DSMIG 2021', desc:'Menghitung benda 1 sampai 5 dengan korespondensi satu-satu' },
+    { id:'ko09', name:'Mengenal huruf alfabet', ds_age:'6–10 thn', typical:'4–5 thn', source:'NDSS 2020', desc:'Mengenal dan menyebutkan huruf alfabet (minimal setengahnya)' },
+    { id:'ko10', name:'Membaca kata sederhana', ds_age:'7–12 thn', typical:'5–6 thn', source:'NDSS 2020', desc:'Membaca kata-kata pendek yang familiar (nama, benda sehari-hari)' },
+    { id:'ko11', name:'Konsep waktu (kemarin/hari ini)', ds_age:'8–12 thn', typical:'5 thn', source:'DSMIG 2021', desc:'Mengerti dan menggunakan konsep waktu dasar secara tepat' },
+  ],
+  sosial: [
+    { id:'so01', name:'Senyum sosial', ds_age:'2–4 bln', typical:'6 mgg', source:'NDSS 2020', desc:'Tersenyum sebagai respons terhadap wajah/suara orang lain (bukan refleks)' },
+    { id:'so02', name:'Tertawa keras', ds_age:'4–8 bln', typical:'4 bln', source:'Pueschel 2000', desc:'Tertawa dengan suara keras sebagai respons sosial' },
+    { id:'so03', name:'Mengenal pengasuh utama', ds_age:'8–12 bln', typical:'6 bln', source:'Pueschel 2000', desc:'Menunjukkan preferensi jelas kepada orangtua/pengasuh utama' },
+    { id:'so04', name:'Kecemasan pada orang asing', ds_age:'12–18 bln', typical:'8–9 bln', source:'NDSS 2020', desc:'Menunjukkan kecemasan atau keengganan saat bertemu orang yang tidak dikenal' },
+    { id:'so05', name:'Bermain paralel', ds_age:'3–4 thn', typical:'2 thn', source:'DSMIG 2021', desc:'Bermain berdampingan dengan anak lain tanpa interaksi aktif' },
+    { id:'so06', name:'Bermain kooperatif sederhana', ds_age:'4–6 thn', typical:'3 thn', source:'DSMIG 2021', desc:'Bermain bersama dengan anak lain, berbagi peran/alat bermain' },
+    { id:'so07', name:'Mengikuti aturan permainan', ds_age:'6–9 thn', typical:'4 thn', source:'NDSS 2020', desc:'Memahami dan mengikuti aturan permainan sederhana (giliran, menang/kalah)' },
+    { id:'so08', name:'Ekspresi empati dasar', ds_age:'4–7 thn', typical:'3–4 thn', source:'NDSS 2020', desc:'Menunjukkan kepedulian ketika orang lain menangis atau terluka' },
+    { id:'so09', name:'Memiliki teman bermain', ds_age:'7–12 thn', typical:'4–5 thn', source:'DSMIG 2021', desc:'Memiliki teman yang dikenali dan dipilih untuk bermain bersama' },
+  ],
+  kemandirian: [
+    { id:'ke01', name:'Makan makanan padat (finger food)', ds_age:'12–18 bln', typical:'8–9 bln', source:'NDSS 2020', desc:'Mengambil dan memasukkan makanan sendiri ke mulut menggunakan jari' },
+    { id:'ke02', name:'Minum dari gelas dengan bantuan', ds_age:'18–24 bln', typical:'12 bln', source:'Kemenkes KIA', desc:'Minum dari gelas (bukan botol) dengan bantuan memegang' },
+    { id:'ke03', name:'Makan dengan sendok (berantakan)', ds_age:'2–4 thn', typical:'18 bln', source:'NDSS 2020', desc:'Menggunakan sendok untuk makan meski masih berantakan' },
+    { id:'ke04', name:'Makan mandiri dengan rapi', ds_age:'4–6 thn', typical:'2.5 thn', source:'NDSS 2020', desc:'Makan menggunakan sendok/garpu dengan sedikit tumpahan' },
+    { id:'ke05', name:'Minum sendiri dari gelas', ds_age:'2–4 thn', typical:'18 bln', source:'Kemenkes KIA', desc:'Minum dari gelas tanpa bantuan dengan kontrol yang baik' },
+    { id:'ke06', name:'Melepas pakaian sederhana', ds_age:'3–5 thn', typical:'2 thn', source:'DSMIG 2021', desc:'Melepas celana atau kaos secara mandiri' },
+    { id:'ke07', name:'Memakai pakaian dengan bantuan minimal', ds_age:'4–7 thn', typical:'2.5–3 thn', source:'DSMIG 2021', desc:'Memakai celana, kaos, dan kaus kaki dengan sedikit bantuan' },
+    { id:'ke08', name:'Toilet training (siang)', ds_age:'3–7 thn', typical:'2–3 thn', source:'NDSS 2020', desc:'Dapat mengontrol BAB/BAK siang hari dan memberi tahu atau pergi sendiri ke toilet' },
+    { id:'ke09', name:'Cuci tangan sendiri', ds_age:'4–7 thn', typical:'3 thn', source:'Kemenkes KIA', desc:'Mencuci tangan dengan sabun dan air secara mandiri (meski kurang bersih)' },
+    { id:'ke10', name:'Sikat gigi dengan bantuan', ds_age:'4–8 thn', typical:'3 thn', source:'NDSS 2020', desc:'Menyikat gigi sendiri, orangtua bantu memeriksa' },
+    { id:'ke11', name:'Memakai sepatu (velcro)', ds_age:'5–8 thn', typical:'3–4 thn', source:'DSMIG 2021', desc:'Memakai dan melepas sepatu berekat (velcro) secara mandiri' },
+  ],
+};
+
+// ═══════════════════════════════════════════════════════════
+//  APP STATE
+// ═══════════════════════════════════════════════════════════
+let currentView = 'dashboard';
+let selectedChildId = null;
+let assessmentState = {}; // { domainId: { milestoneId: 'tercapai'|'berkembang'|'belum' } }
+let chartInstances = {};
+
+// ═══════════════════════════════════════════════════════════
+//  NAVIGATION
+// ═══════════════════════════════════════════════════════════
+const PAGE_TITLES = {
+  dashboard: 'Dashboard',
+  profil: 'Profil Anak',
+  pertumbuhan: 'Pertumbuhan (TB / BB / LK)',
+  penilaian: 'Penilaian Baru',
+  riwayat: 'Riwayat Penilaian',
+  statistik: 'Statistik & Grafik',
+  laporan: 'Laporan',
+  referensi: 'Panduan Milestone',
+};
+
+function navigate(view) {
+  currentView = view;
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + view).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => {
+    n.classList.toggle('active', n.dataset.view === view);
+  });
+  document.getElementById('page-title').textContent = PAGE_TITLES[view] || view;
+  renderView(view);
+}
+
+function renderView(view) {
+  switch(view) {
+    case 'dashboard':    renderDashboard(); break;
+    case 'profil':       renderProfil(); break;
+    case 'pertumbuhan':  renderPertumbuhan(); break;
+    case 'penilaian':    renderPenilaian(); break;
+    case 'riwayat':      renderRiwayat(); break;
+    case 'statistik':    renderStatistik(); break;
+    case 'laporan':      renderLaporan(); break;
+    case 'referensi':    renderReferensi(); break;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  CHILD MANAGEMENT
+// ═══════════════════════════════════════════════════════════
+function addChild() {
+  const nama = document.getElementById('child-nama').value.trim();
+  const tgl  = document.getElementById('child-tgl-lahir').value;
+  if (!nama || !tgl) { toast('Nama dan tanggal lahir wajib diisi!', 'error'); return; }
+  const children = DB.getChildren();
+  const child = {
+    id: uid(),
+    nama, tgl_lahir: tgl,
+    jenis_kelamin: document.getElementById('child-jk').value,
+    tipe_ds: document.getElementById('child-tipe').value,
+    kondisi_penyerta: document.getElementById('child-kondisi').value,
+    terapis: document.getElementById('child-terapis').value,
+    catatan: document.getElementById('child-catatan').value,
+    created_at: new Date().toISOString(),
+  };
+  children.push(child);
+  DB.saveChildren(children);
+  closeModal('modal-add-child');
+  refreshChildSelector();
+  selectedChildId = child.id;
+  document.getElementById('child-select').value = child.id;
+  toast('Profil anak berhasil disimpan!', 'success');
+  navigate('dashboard');
+}
+
+function deleteChild(id) {
+  if (!confirm('Hapus profil anak ini? Semua data penilaian juga akan terhapus.')) return;
+  let children = DB.getChildren().filter(c => c.id !== id);
+  DB.saveChildren(children);
+  let assessments = DB.getAssessments().filter(a => a.child_id !== id);
+  DB.saveAssessments(assessments);
+  if (selectedChildId === id) {
+    selectedChildId = children[0]?.id || null;
+    document.getElementById('child-select').value = selectedChildId || '';
+  }
+  refreshChildSelector();
+  renderView(currentView);
+  toast('Profil anak dihapus', 'success');
+}
+
+function refreshChildSelector() {
+  const sel = document.getElementById('child-select');
+  const children = DB.getChildren();
+  const current = sel.value;
+  sel.innerHTML = '<option value="">-- Pilih Anak --</option>';
+  children.forEach(c => {
+    const age = getAge(c.tgl_lahir);
+    const opt = document.createElement('option');
+    opt.value = c.id;
+    opt.textContent = `${c.nama} (${age})`;
+    sel.appendChild(opt);
+  });
+  if (current && children.find(c => c.id === current)) sel.value = current;
+  else if (selectedChildId && children.find(c => c.id === selectedChildId)) sel.value = selectedChildId;
+}
+
+function onChildChange() {
+  selectedChildId = document.getElementById('child-select').value || null;
+  renderView(currentView);
+}
+
+function getChild() {
+  if (!selectedChildId) return null;
+  return DB.getChildren().find(c => c.id === selectedChildId) || null;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  UTILITY
+// ═══════════════════════════════════════════════════════════
+function getAge(tgl_lahir) {
+  const born = new Date(tgl_lahir);
+  const now = new Date();
+  let years = now.getFullYear() - born.getFullYear();
+  let months = now.getMonth() - born.getMonth();
+  if (months < 0) { years--; months += 12; }
+  if (now.getDate() < born.getDate()) months--;
+  if (months < 0) { years--; months += 12; }
+  if (years < 1) return `${months} bulan`;
+  if (months === 0) return `${years} tahun`;
+  return `${years} thn ${months} bln`;
+}
+
+function formatDate(str) {
+  if (!str) return '-';
+  return new Date(str).toLocaleDateString('id-ID', { day:'2-digit', month:'long', year:'numeric' });
+}
+
+function scoreColor(score) {
+  if (score >= 70) return '#00C851';
+  if (score >= 40) return '#FFD600';
+  return '#E50000';
+}
+
+function calcDomainScore(assessmentMilestones) {
+  // assessmentMilestones: { milestoneId: 'tercapai'|'berkembang'|'belum' }
+  if (!assessmentMilestones || Object.keys(assessmentMilestones).length === 0) return 0;
+  let total = 0, earned = 0;
+  for (const [, status] of Object.entries(assessmentMilestones)) {
+    total += 1;
+    if (status === 'tercapai') earned += 1;
+    else if (status === 'berkembang') earned += 0.5;
+  }
+  return total === 0 ? 0 : Math.round((earned / total) * 100);
+}
+
+function getLatestAssessmentScores(childId) {
+  const assessments = DB.getAssessments().filter(a => a.child_id === childId);
+  if (!assessments.length) return null;
+  assessments.sort((a, b) => new Date(b.tanggal) - new Date(a.tanggal));
+  const latest = assessments[0];
+  const scores = {};
+  for (const domain of DOMAINS) {
+    scores[domain.id] = calcDomainScore(latest.milestones?.[domain.id] || {});
+  }
+  return { scores, assessment: latest };
+}
+
+function getAllScoresHistory(childId) {
+  const assessments = DB.getAssessments()
+    .filter(a => a.child_id === childId)
+    .sort((a, b) => new Date(a.tanggal) - new Date(b.tanggal));
+  return assessments.map(a => {
+    const scores = {};
+    for (const d of DOMAINS) scores[d.id] = calcDomainScore(a.milestones?.[d.id] || {});
+    return { date: a.tanggal, scores, assessment: a };
+  });
+}
+
+function totalScore(scores) {
+  const vals = Object.values(scores);
+  return vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 0;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  CHART HELPERS
+// ═══════════════════════════════════════════════════════════
+function destroyChart(id) {
+  if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; }
+}
+
+function mkChart(id, config) {
+  destroyChart(id);
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  chartInstances[id] = new Chart(ctx, config);
+}
+
+const DOMAIN_COLORS = {
+  motorik_kasar: '#E50000',
+  motorik_halus: '#C9A900',
+  wicara:        '#0D0D0D',
+  kognitif:      '#2563EB',
+  sosial:        '#16A34A',
+  kemandirian:   '#7C3AED',
+};
+
+// ═══════════════════════════════════════════════════════════
+//  DASHBOARD
+// ═══════════════════════════════════════════════════════════
+function renderDashboard() {
+  const child = getChild();
+  const children = DB.getChildren();
+  const empty = document.getElementById('dash-empty');
+  const content = document.getElementById('dash-content');
+
+  if (!child && children.length === 0) {
+    empty.style.display = 'block';
+    content.style.display = 'none';
+    return;
+  }
+  empty.style.display = 'none';
+  content.style.display = 'block';
+
+  const assessments = child ? DB.getAssessments().filter(a => a.child_id === child.id) : [];
+  const latestData = child ? getLatestAssessmentScores(child.id) : null;
+  const history = child ? getAllScoresHistory(child.id) : [];
+
+  // Stats
+  const stats = document.getElementById('dash-stats');
+  const ageStr = child ? getAge(child.tgl_lahir) : '-';
+  const totalAssess = assessments.length;
+  const overallScore = latestData ? totalScore(latestData.scores) : 0;
+  const allChildren = children.length;
+
+  stats.innerHTML = `
+    <div class="stat-card yellow">
+      <div class="stat-card-icon">👶</div>
+      <div class="stat-value">${child ? child.nama.split(' ')[0] : '-'}</div>
+      <div class="stat-label">Nama Anak</div>
+      <div class="stat-sub">${child ? child.tipe_ds : ''} · ${ageStr}</div>
+    </div>
+    <div class="stat-card red">
+      <div class="stat-card-icon">📊</div>
+      <div class="stat-value">${overallScore}%</div>
+      <div class="stat-label">Skor Keseluruhan</div>
+      <div class="stat-sub">Penilaian terbaru</div>
+    </div>
+    <div class="stat-card black">
+      <div class="stat-card-icon">📋</div>
+      <div class="stat-value">${totalAssess}</div>
+      <div class="stat-label">Total Penilaian</div>
+      <div class="stat-sub">${child ? 'Sesi untuk ' + child.nama.split(' ')[0] : '-'}</div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-card-icon">👥</div>
+      <div class="stat-value">${allChildren}</div>
+      <div class="stat-label">Total Anak</div>
+      <div class="stat-sub">Dalam database</div>
+    </div>
+  `;
+
+  if (!latestData) {
+    // Show placeholder charts
+    renderEmptyCharts();
+    document.getElementById('dash-domain-progress').innerHTML = `
+      <div class="empty-state" style="padding:30px">
+        <div class="empty-icon">📋</div>
+        <h3>Belum ada data penilaian</h3>
+        <p>Lakukan penilaian pertama untuk melihat perkembangan ${child?.nama || ''}</p>
+        <br><button class="btn btn-primary" onclick="navigate('penilaian')">+ Mulai Penilaian</button>
+      </div>`;
+    return;
+  }
+
+  const labels = DOMAINS.map(d => d.label);
+  const dataValues = DOMAINS.map(d => latestData.scores[d.id]);
+  const colors = DOMAINS.map(d => DOMAIN_COLORS[d.id]);
+
+  // Radar
+  mkChart('chart-radar', {
+    type: 'radar',
+    data: {
+      labels,
+      datasets: [{
+        label: child.nama,
+        data: dataValues,
+        borderColor: '#FFD600',
+        backgroundColor: 'rgba(255,214,0,.12)',
+        borderWidth: 2.5,
+        pointBackgroundColor: '#FFD600',
+        pointBorderColor: '#0D0D0D',
+        pointRadius: 5,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: { r: { min: 0, max: 100, ticks: { stepSize: 20, font: { size: 10 } }, pointLabels: { font: { size: 11, weight: 'bold' } } } },
+      plugins: { legend: { display: false } }
+    }
+  });
+
+  // Trend line
+  const dateLabels = history.map(h => formatDate(h.date).replace(/ \d{4}/, ''));
+  const trendData = history.map(h => totalScore(h.scores));
+  mkChart('chart-trend', {
+    type: 'line',
+    data: {
+      labels: dateLabels.length ? dateLabels : ['Belum ada'],
+      datasets: [{
+        label: 'Skor Total',
+        data: trendData,
+        borderColor: '#E50000',
+        backgroundColor: 'rgba(229,0,0,.08)',
+        tension: 0.3,
+        fill: true,
+        borderWidth: 2.5,
+        pointRadius: 5,
+        pointBackgroundColor: '#FFD600',
+        pointBorderColor: '#0D0D0D',
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: { y: { min: 0, max: 100, ticks: { callback: v => v + '%' } } },
+      plugins: { legend: { display: false } }
+    }
+  });
+
+  // Bar per domain
+  const latestMs = DB.getAssessments().filter(a => a.child_id === child.id)
+    .sort((a, b) => new Date(b.tanggal) - new Date(a.tanggal))[0];
+  const tercapaiData = [], berkembangData = [], belumData = [];
+  for (const d of DOMAINS) {
+    let t = 0, b = 0, bl = 0;
+    const ms = latestMs?.milestones?.[d.id] || {};
+    for (const [, s] of Object.entries(ms)) {
+      if (s === 'tercapai') t++;
+      else if (s === 'berkembang') b++;
+      else bl++;
+    }
+    const total = MILESTONES[d.id].length;
+    const assessed = t + b + bl;
+    bl += (total - assessed); // add unanswered as belum
+    tercapaiData.push(t); berkembangData.push(b); belumData.push(bl);
+  }
+  mkChart('chart-bar-domain', {
+    type: 'bar',
+    data: {
+      labels: DOMAINS.map(d => d.label.split(' ')[0]),
+      datasets: [
+        { label: 'Tercapai', data: tercapaiData, backgroundColor: '#00C851' },
+        { label: 'Berkembang', data: berkembangData, backgroundColor: '#FFD600' },
+        { label: 'Belum', data: belumData, backgroundColor: '#E50000' },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { font: { size: 11, weight: 'bold' } } } },
+      scales: { x: { stacked: true }, y: { stacked: true, ticks: { font: { size: 11 } } } }
+    }
+  });
+
+  // Doughnut
+  const overallT = tercapaiData.reduce((a, b) => a + b, 0);
+  const overallB = berkembangData.reduce((a, b) => a + b, 0);
+  const overallBl = belumData.reduce((a, b) => a + b, 0);
+  mkChart('chart-doughnut', {
+    type: 'doughnut',
+    data: {
+      labels: ['Tercapai', 'Berkembang', 'Belum'],
+      datasets: [{ data: [overallT, overallB, overallBl], backgroundColor: ['#00C851','#FFD600','#E50000'], borderWidth: 3, borderColor: '#fff' }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      cutout: '65%',
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 11, weight: 'bold' } } },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw} milestone` } }
+      }
+    }
+  });
+
+  // Multi-line per domain
+  mkChart('chart-multi-line', {
+    type: 'line',
+    data: {
+      labels: dateLabels,
+      datasets: DOMAINS.map(d => ({
+        label: d.label,
+        data: history.map(h => h.scores[d.id]),
+        borderColor: DOMAIN_COLORS[d.id],
+        backgroundColor: DOMAIN_COLORS[d.id] + '18',
+        tension: 0.3, fill: false, borderWidth: 2,
+        pointRadius: 4,
+      }))
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: { y: { min: 0, max: 100, ticks: { callback: v => v + '%' } } },
+      plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 14 } } }
+    }
+  });
+
+  // Domain progress bars
+  const progressHtml = DOMAINS.map(d => {
+    const s = latestData.scores[d.id];
+    const col = scoreColor(s);
+    return `<div class="progress-row">
+      <div class="progress-header">
+        <span class="progress-label">${d.icon} ${d.label}</span>
+        <span class="progress-pct" style="color:${col}">${s}%</span>
+      </div>
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" style="width:${s}%;background:${col}"></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('dash-domain-progress').innerHTML = `
+    <div class="chart-card">
+      <div class="chart-title">Progress per Domain</div>
+      <div class="chart-subtitle">Skor domain berdasarkan penilaian terakhir</div>
+      <div style="margin-top:16px">${progressHtml}</div>
+    </div>`;
+}
+
+function renderEmptyCharts() {
+  ['chart-radar','chart-trend','chart-bar-domain','chart-doughnut','chart-multi-line'].forEach(id => destroyChart(id));
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PROFIL
+// ═══════════════════════════════════════════════════════════
+function renderProfil() {
+  const children = DB.getChildren();
+  const list = document.getElementById('profile-list');
+  const empty = document.getElementById('no-profile');
+  if (!children.length) {
+    list.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  list.innerHTML = children.map(c => {
+    const age = getAge(c.tgl_lahir);
+    const assessments = DB.getAssessments().filter(a => a.child_id === c.id);
+    const latest = getLatestAssessmentScores(c.id);
+    const score = latest ? totalScore(latest.scores) : null;
+    const emoji = c.jenis_kelamin === 'P' ? '👧' : '👦';
+    return `<div class="profile-card ${selectedChildId === c.id ? 'selected' : ''}" onclick="selectChild('${c.id}')">
+      <div class="profile-avatar">${emoji}</div>
+      <div class="profile-name">${c.nama}</div>
+      <div class="profile-meta">${age} · ${c.tipe_ds}</div>
+      ${c.terapis ? `<div class="profile-meta">Terapis: ${c.terapis}</div>` : ''}
+      <div class="profile-tags">
+        <span class="profile-tag">${assessments.length} Penilaian</span>
+        ${score !== null ? `<span class="profile-tag" style="color:${scoreColor(score)};border-color:${scoreColor(score)}20">Skor: ${score}%</span>` : ''}
+        ${c.kondisi_penyerta ? `<span class="profile-tag">${c.kondisi_penyerta}</span>` : ''}
+      </div>
+      <div class="profile-actions">
+        <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();selectChildAndAssess('${c.id}')">+ Nilai</button>
+        <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();selectChild('${c.id}');navigate('statistik')">Statistik</button>
+        <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteChild('${c.id}')">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function selectChild(id) {
+  selectedChildId = id;
+  document.getElementById('child-select').value = id;
+  renderProfil();
+}
+
+function selectChildAndAssess(id) {
+  selectedChildId = id;
+  document.getElementById('child-select').value = id;
+  navigate('penilaian');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PENILAIAN
+// ═══════════════════════════════════════════════════════════
+function renderPenilaian() {
+  const child = getChild();
+  const noChild = document.getElementById('assess-no-child');
+  const formWrap = document.getElementById('assess-form-wrap');
+
+  if (!child) {
+    noChild.style.display = 'block';
+    formWrap.style.display = 'none';
+    return;
+  }
+  noChild.style.display = 'none';
+  formWrap.style.display = 'block';
+
+  // Default date to today
+  const dateInput = document.getElementById('assess-date');
+  if (!dateInput.value) dateInput.value = new Date().toISOString().split('T')[0];
+
+  // Domain tabs
+  const strip = document.getElementById('domain-tab-strip');
+  strip.innerHTML = DOMAINS.map((d, i) => {
+    const scores = assessmentState[d.id] ? calcDomainScore(assessmentState[d.id]) : null;
+    return `<div class="domain-chip ${i === 0 ? 'active' : ''}" id="domain-tab-${d.id}"
+      style="background:${DOMAIN_COLORS[d.id]}15;border-color:${DOMAIN_COLORS[d.id]}40"
+      onclick="switchDomainTab('${d.id}')">
+      <span>${d.icon}</span>
+      <span>${d.label}</span>
+      ${scores !== null ? `<span class="score" style="color:${DOMAIN_COLORS[d.id]}">${scores}%</span>` : ''}
+    </div>`;
+  }).join('');
+
+  // Domain panels
+  const panels = document.getElementById('domain-assess-panels');
+  panels.innerHTML = DOMAINS.map((d, i) => `
+    <div id="domain-panel-${d.id}" style="display:${i===0?'block':'none'}">
+      <div class="form-card">
+        <div class="form-title">${d.icon} ${d.label} <span>${MILESTONES[d.id].length} Milestone</span></div>
+        <div>
+          ${MILESTONES[d.id].map(m => {
+            const current = assessmentState[d.id]?.[m.id] || '';
+            return `<div class="assess-row">
+              <div class="assess-info">
+                <div class="assess-name">${m.name}</div>
+                <div class="assess-age">DS: ${m.ds_age} &nbsp;·&nbsp; Tipikal: ${m.typical}</div>
+                <div class="assess-source">${m.desc}</div>
+                <div class="assess-source">Sumber: ${m.source}</div>
+              </div>
+              <div class="radio-group">
+                ${['tercapai','berkembang','belum'].map(s => `
+                  <button class="radio-btn ${current === s ? 'selected '+s : ''}"
+                    onclick="setMilestone('${d.id}','${m.id}','${s}',this)">
+                    ${s === 'tercapai' ? '✓ Tercapai' : s === 'berkembang' ? '~ Berkembang' : '✗ Belum'}
+                  </button>`).join('')}
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function switchDomainTab(domainId) {
+  DOMAINS.forEach(d => {
+    document.getElementById('domain-panel-'+d.id).style.display = d.id === domainId ? 'block' : 'none';
+    const tab = document.getElementById('domain-tab-'+d.id);
+    if (tab) tab.classList.toggle('active', d.id === domainId);
+  });
+}
+
+function setMilestone(domainId, milestoneId, status, btn) {
+  if (!assessmentState[domainId]) assessmentState[domainId] = {};
+  assessmentState[domainId][milestoneId] = status;
+  // Update button UI
+  const row = btn.closest('.assess-row');
+  row.querySelectorAll('.radio-btn').forEach(b => {
+    b.className = 'radio-btn';
+    if (b.textContent.includes('Tercapai') && status === 'tercapai') b.classList.add('selected','tercapai');
+    if (b.textContent.includes('Berkembang') && status === 'berkembang') b.classList.add('selected','berkembang');
+    if (b.textContent.includes('Belum') && status === 'belum') b.classList.add('selected','belum');
+  });
+  // Update domain tab score
+  const scores = calcDomainScore(assessmentState[domainId]);
+  const d = DOMAINS.find(x => x.id === domainId);
+  const tab = document.getElementById('domain-tab-'+domainId);
+  if (tab) {
+    tab.innerHTML = `<span>${d.icon}</span><span>${d.label}</span><span class="score" style="color:${DOMAIN_COLORS[domainId]}">${scores}%</span>`;
+  }
+}
+
+function saveAssessment() {
+  const child = getChild();
+  if (!child) { toast('Pilih anak terlebih dahulu!', 'error'); return; }
+  const date = document.getElementById('assess-date').value;
+  if (!date) { toast('Masukkan tanggal penilaian!', 'error'); return; }
+  const hasAnyData = DOMAINS.some(d => assessmentState[d.id] && Object.keys(assessmentState[d.id]).length > 0);
+  if (!hasAnyData) { toast('Isi minimal satu domain penilaian!', 'error'); return; }
+
+  const assessment = {
+    id: uid(),
+    child_id: child.id,
+    tanggal: date,
+    assessor: document.getElementById('assess-assessor').value,
+    catatan: document.getElementById('assess-notes').value,
+    milestones: JSON.parse(JSON.stringify(assessmentState)),
+    created_at: new Date().toISOString(),
+  };
+  const assessments = DB.getAssessments();
+  assessments.push(assessment);
+  DB.saveAssessments(assessments);
+  assessmentState = {};
+  toast('Penilaian berhasil disimpan!', 'success');
+  navigate('dashboard');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  RIWAYAT
+// ═══════════════════════════════════════════════════════════
+function renderRiwayat() {
+  const child = getChild();
+  const empty = document.getElementById('riwayat-empty');
+  const content = document.getElementById('riwayat-content');
+  const assessments = child
+    ? DB.getAssessments().filter(a => a.child_id === child.id).sort((a, b) => new Date(b.tanggal) - new Date(a.tanggal))
+    : [];
+
+  if (!child || !assessments.length) {
+    empty.style.display = 'block'; content.style.display = 'none'; return;
+  }
+  empty.style.display = 'none'; content.style.display = 'block';
+
+  // Table
+  const tableHtml = `
+    <table class="milestone-table">
+      <thead>
+        <tr>
+          <th>Tanggal</th>
+          <th>Asesor</th>
+          ${DOMAINS.map(d => `<th>${d.label.split(' ')[0]}</th>`).join('')}
+          <th>Total</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        ${assessments.map(a => {
+          const scores = {};
+          for (const d of DOMAINS) scores[d.id] = calcDomainScore(a.milestones?.[d.id] || {});
+          const tot = totalScore(scores);
+          return `<tr>
+            <td style="font-weight:700">${formatDate(a.tanggal)}</td>
+            <td>${a.assessor || '-'}</td>
+            ${DOMAINS.map(d => `<td style="color:${scoreColor(scores[d.id])};font-weight:800">${scores[d.id]}%</td>`).join('')}
+            <td style="font-weight:900;color:${scoreColor(tot)}">${tot}%</td>
+            <td><button class="btn btn-outline btn-sm" onclick="showAssessDetail('${a.id}')">Detail</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteAssessment('${a.id}')">🗑</button></td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+  document.getElementById('riwayat-table-wrap').innerHTML = tableHtml;
+
+  // Timeline
+  document.getElementById('riwayat-timeline').innerHTML = assessments.map(a => {
+    const scores = {};
+    for (const d of DOMAINS) scores[d.id] = calcDomainScore(a.milestones?.[d.id] || {});
+    const tot = totalScore(scores);
+    return `<div class="timeline-item">
+      <div class="timeline-dot ${tot >= 70 ? '' : tot >= 40 ? 'black' : 'red'}"></div>
+      <div class="timeline-card">
+        <div class="timeline-date">${formatDate(a.tanggal)} ${a.assessor ? '· Asesor: ' + a.assessor : ''}</div>
+        <div class="timeline-title">Skor Total: <span style="color:${scoreColor(tot)}">${tot}%</span></div>
+        ${a.catatan ? `<div class="timeline-body">${a.catatan}</div>` : ''}
+        <div class="timeline-scores">
+          ${DOMAINS.map(d => `<span class="domain-score-chip" style="border-color:${DOMAIN_COLORS[d.id]}40;color:${DOMAIN_COLORS[d.id]}">${d.icon} ${scores[d.id]}%</span>`).join('')}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function deleteAssessment(id) {
+  if (!confirm('Hapus data penilaian ini?')) return;
+  const assessments = DB.getAssessments().filter(a => a.id !== id);
+  DB.saveAssessments(assessments);
+  toast('Penilaian dihapus', 'success');
+  renderRiwayat();
+}
+
+function showAssessDetail(id) {
+  const a = DB.getAssessments().find(x => x.id === id);
+  if (!a) return;
+  const child = DB.getChildren().find(c => c.id === a.child_id);
+  document.getElementById('modal-detail-title').textContent = `Detail Penilaian - ${formatDate(a.tanggal)}`;
+  let html = `<p class="text-muted" style="margin-bottom:16px">Anak: <strong>${child?.nama}</strong> · Asesor: ${a.assessor || '-'}</p>`;
+  if (a.catatan) html += `<div class="form-card" style="padding:12px;margin-bottom:16px;font-size:12px">${a.catatan}</div>`;
+  for (const d of DOMAINS) {
+    const ms = a.milestones?.[d.id] || {};
+    const score = calcDomainScore(ms);
+    if (!Object.keys(ms).length) continue;
+    html += `<div class="milestone-section">
+      <div class="section-title">${d.icon} ${d.label} <span class="domain-score" style="color:${scoreColor(score)}">${score}%</span></div>
+      <table class="milestone-table"><thead><tr><th>Milestone</th><th>Usia DS</th><th>Status</th></tr></thead><tbody>
+        ${MILESTONES[d.id].filter(m => ms[m.id]).map(m => `
+          <tr><td>${m.name}</td><td class="age-range">${m.ds_age}</td>
+          <td><span class="status-badge ${ms[m.id]}">${ms[m.id] === 'tercapai' ? '✓ Tercapai' : ms[m.id] === 'berkembang' ? '~ Berkembang' : '✗ Belum'}</span></td>
+          </tr>`).join('')}
+      </tbody></table>
+    </div>`;
+  }
+  document.getElementById('modal-detail-body').innerHTML = html;
+  openModal('modal-assess-detail');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  STATISTIK
+// ═══════════════════════════════════════════════════════════
+function renderStatistik() {
+  const child = getChild();
+  const empty = document.getElementById('stat-empty');
+  const content = document.getElementById('stat-content');
+  const assessments = child
+    ? DB.getAssessments().filter(a => a.child_id === child.id)
+    : [];
+
+  if (!child || !assessments.length) {
+    empty.style.display = 'block'; content.style.display = 'none'; return;
+  }
+  empty.style.display = 'none'; content.style.display = 'block';
+
+  const history = getAllScoresHistory(child.id);
+  const latest = history[history.length - 1];
+  const dateLabels = history.map(h => formatDate(h.date).replace(/ \d{4}/, ''));
+
+  // Domain stat cards
+  document.getElementById('stat-domain-cards').innerHTML = DOMAINS.map(d => {
+    const s = latest.scores[d.id];
+    const prev = history.length > 1 ? history[history.length - 2].scores[d.id] : null;
+    const delta = prev !== null ? s - prev : null;
+    return `<div class="stat-card" style="border-left:5px solid ${DOMAIN_COLORS[d.id]}">
+      <div class="stat-card-icon" style="background:${DOMAIN_COLORS[d.id]}15">${d.icon}</div>
+      <div class="stat-value" style="color:${scoreColor(s)}">${s}%</div>
+      <div class="stat-label">${d.label}</div>
+      ${delta !== null ? `<div class="stat-sub" style="color:${delta >= 0 ? '#00C851' : '#E50000'}">${delta >= 0 ? '▲' : '▼'} ${Math.abs(delta)}% dari sesi sebelumnya</div>` : '<div class="stat-sub">Penilaian pertama</div>'}
+    </div>`;
+  }).join('');
+
+  // Motorik chart
+  mkChart('chart-stat-motorik', {
+    type: 'line',
+    data: {
+      labels: dateLabels,
+      datasets: [
+        { label: 'Motorik Kasar', data: history.map(h => h.scores.motorik_kasar), borderColor: '#E50000', tension: 0.3, fill: false, borderWidth: 2.5, pointRadius: 5, pointBackgroundColor: '#E50000' },
+        { label: 'Motorik Halus', data: history.map(h => h.scores.motorik_halus), borderColor: '#C9A900', tension: 0.3, fill: false, borderWidth: 2.5, pointRadius: 5, pointBackgroundColor: '#C9A900' },
+      ]
+    },
+    options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100, ticks: { callback: v => v + '%' } } }, plugins: { legend: { position: 'bottom' } } }
+  });
+
+  // Kognitif & Wicara
+  mkChart('chart-stat-kogwic', {
+    type: 'line',
+    data: {
+      labels: dateLabels,
+      datasets: [
+        { label: 'Kognitif', data: history.map(h => h.scores.kognitif), borderColor: '#2563EB', tension: 0.3, fill: false, borderWidth: 2.5, pointRadius: 5 },
+        { label: 'Wicara', data: history.map(h => h.scores.wicara), borderColor: '#0D0D0D', tension: 0.3, fill: false, borderWidth: 2.5, pointRadius: 5 },
+      ]
+    },
+    options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100, ticks: { callback: v => v + '%' } } }, plugins: { legend: { position: 'bottom' } } }
+  });
+
+  // Sosial & Kemandirian
+  mkChart('chart-stat-soskem', {
+    type: 'line',
+    data: {
+      labels: dateLabels,
+      datasets: [
+        { label: 'Sosial', data: history.map(h => h.scores.sosial), borderColor: '#16A34A', tension: 0.3, fill: false, borderWidth: 2.5, pointRadius: 5 },
+        { label: 'Kemandirian', data: history.map(h => h.scores.kemandirian), borderColor: '#7C3AED', tension: 0.3, fill: false, borderWidth: 2.5, pointRadius: 5 },
+      ]
+    },
+    options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100, ticks: { callback: v => v + '%' } } }, plugins: { legend: { position: 'bottom' } } }
+  });
+
+  // Stacked bar latest
+  const latestA = DB.getAssessments().filter(a => a.child_id === child.id).sort((a, b) => new Date(b.tanggal) - new Date(a.tanggal))[0];
+  const tercapai = [], berkembang = [], belum = [];
+  for (const d of DOMAINS) {
+    let t = 0, b = 0, bl = 0;
+    const ms = latestA?.milestones?.[d.id] || {};
+    for (const s of Object.values(ms)) { if (s==='tercapai') t++; else if (s==='berkembang') b++; else bl++; }
+    bl += MILESTONES[d.id].length - t - b - bl;
+    tercapai.push(t); berkembang.push(b); belum.push(bl);
+  }
+  mkChart('chart-stat-stack', {
+    type: 'bar',
+    data: {
+      labels: DOMAINS.map(d => d.label),
+      datasets: [
+        { label: 'Tercapai', data: tercapai, backgroundColor: '#00C851' },
+        { label: 'Berkembang', data: berkembang, backgroundColor: '#FFD600' },
+        { label: 'Belum', data: belum, backgroundColor: '#E50000' },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      indexAxis: 'y',
+      plugins: { legend: { position: 'bottom' } },
+      scales: { x: { stacked: true }, y: { stacked: true } }
+    }
+  });
+
+  // Milestone detail
+  let detailHtml = '';
+  for (const d of DOMAINS) {
+    const ms = latestA?.milestones?.[d.id] || {};
+    const score = calcDomainScore(ms);
+    detailHtml += `<div class="milestone-section" style="margin-bottom:24px">
+      <div class="section-title">${d.icon} ${d.label}
+        <span class="domain-score" style="color:${scoreColor(score)}">${score}%</span>
+      </div>
+      <table class="milestone-table">
+        <thead><tr><th>Milestone</th><th>Usia DS</th><th>Tipikal</th><th>Sumber</th><th>Status</th></tr></thead>
+        <tbody>
+          ${MILESTONES[d.id].map(m => {
+            const s = ms[m.id] || 'belum';
+            return `<tr>
+              <td><strong>${m.name}</strong><br><span class="age-range">${m.desc}</span></td>
+              <td class="age-range">${m.ds_age}</td>
+              <td class="age-range">${m.typical}</td>
+              <td class="age-range">${m.source}</td>
+              <td><span class="status-badge ${s}">${s === 'tercapai' ? '✓ Tercapai' : s === 'berkembang' ? '~ Berkembang' : '✗ Belum'}</span></td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`;
+  }
+  document.getElementById('stat-milestone-detail').innerHTML = detailHtml;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  LAPORAN
+// ═══════════════════════════════════════════════════════════
+function renderLaporan() {
+  const child = getChild();
+  const empty = document.getElementById('laporan-empty');
+  const content = document.getElementById('laporan-content');
+  const assessments = child
+    ? DB.getAssessments().filter(a => a.child_id === child.id).sort((a, b) => new Date(b.tanggal) - new Date(a.tanggal))
+    : [];
+
+  if (!child || !assessments.length) {
+    empty.style.display = 'block'; content.style.display = 'none'; return;
+  }
+  empty.style.display = 'none'; content.style.display = 'block';
+
+  const latest = assessments[0];
+  const scores = {};
+  for (const d of DOMAINS) scores[d.id] = calcDomainScore(latest.milestones?.[d.id] || {});
+  const tot = totalScore(scores);
+
+  const recommendations = generateRecommendations(scores, latest, child);
+  const age = getAge(child.tgl_lahir);
+
+  document.getElementById('laporan-body').innerHTML = `
+    <div class="report-header">
+      <div class="report-logo">DS</div>
+      <div class="report-meta">
+        <h2>Laporan Tumbuh Kembang</h2>
+        <p><strong>Nama:</strong> ${child.nama} &nbsp;·&nbsp; <strong>Usia:</strong> ${age} &nbsp;·&nbsp; <strong>Tipe DS:</strong> ${child.tipe_ds}</p>
+        <p><strong>Terapis:</strong> ${child.terapis || '-'} &nbsp;·&nbsp; <strong>Tanggal Laporan:</strong> ${formatDate(new Date().toISOString())}</p>
+        <p><strong>Penilaian Terakhir:</strong> ${formatDate(latest.tanggal)} &nbsp;·&nbsp; <strong>Asesor:</strong> ${latest.assessor || '-'}</p>
+        ${child.kondisi_penyerta ? `<p><strong>Kondisi Penyerta:</strong> ${child.kondisi_penyerta}</p>` : ''}
+      </div>
+    </div>
+
+    <div class="report-section">
+      <div class="report-section-title">Ringkasan Skor Perkembangan</div>
+      <div class="stat-grid">
+        <div class="stat-card ${tot >= 70 ? 'green' : tot >= 40 ? 'yellow' : 'red'}">
+          <div class="stat-value" style="color:${scoreColor(tot)}">${tot}%</div>
+          <div class="stat-label">Skor Total</div>
+        </div>
+        ${DOMAINS.map(d => `<div class="stat-card" style="border-left:5px solid ${DOMAIN_COLORS[d.id]}">
+          <div class="stat-card-icon" style="background:${DOMAIN_COLORS[d.id]}15">${d.icon}</div>
+          <div class="stat-value" style="color:${scoreColor(scores[d.id])}">${scores[d.id]}%</div>
+          <div class="stat-label">${d.label}</div>
+        </div>`).join('')}
+      </div>
+    </div>
+
+    <div class="report-section">
+      <div class="report-section-title">Progress Bar Domain</div>
+      ${DOMAINS.map(d => `<div class="progress-row">
+        <div class="progress-header">
+          <span class="progress-label">${d.icon} ${d.label}</span>
+          <span class="progress-pct" style="color:${scoreColor(scores[d.id])}">${scores[d.id]}%</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" style="width:${scores[d.id]}%;background:${scoreColor(scores[d.id])}"></div>
+        </div>
+      </div>`).join('')}
+    </div>
+
+    <div class="report-section">
+      <div class="report-section-title">Detail Milestone (Penilaian Terbaru)</div>
+      ${DOMAINS.map(d => {
+        const ms = latest.milestones?.[d.id] || {};
+        if (!Object.keys(ms).length) return '';
+        return `<div class="milestone-section">
+          <div class="section-title">${d.icon} ${d.label} <span class="domain-score" style="color:${scoreColor(scores[d.id])}">${scores[d.id]}%</span></div>
+          <table class="milestone-table">
+            <thead><tr><th>Milestone</th><th>Usia DS</th><th>Status</th></tr></thead>
+            <tbody>${MILESTONES[d.id].filter(m => ms[m.id]).map(m => `
+              <tr><td>${m.name}</td><td class="age-range">${m.ds_age}</td>
+              <td><span class="status-badge ${ms[m.id]}">${ms[m.id] === 'tercapai' ? '✓ Tercapai' : ms[m.id] === 'berkembang' ? '~ Berkembang' : '✗ Belum'}</span></td></tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <div class="report-section">
+      <div class="report-section-title">Rekomendasi Intervensi</div>
+      ${recommendations.map(r => `<div class="recommendation-item">
+        <span class="recommendation-icon">${r.icon}</span>
+        <div><strong>${r.title}</strong><br><span style="color:var(--gray-700);font-size:12px">${r.body}</span></div>
+      </div>`).join('')}
+    </div>
+
+    ${assessments.length > 1 ? `<div class="report-section">
+      <div class="report-section-title">Riwayat Penilaian</div>
+      <table class="milestone-table">
+        <thead><tr><th>Tanggal</th><th>Asesor</th>${DOMAINS.map(d=>`<th>${d.label.split(' ')[0]}</th>`).join('')}<th>Total</th></tr></thead>
+        <tbody>${assessments.map(a => {
+          const sc = {}; for (const d of DOMAINS) sc[d.id] = calcDomainScore(a.milestones?.[d.id]||{});
+          const t = totalScore(sc);
+          return `<tr><td>${formatDate(a.tanggal)}</td><td>${a.assessor||'-'}</td>
+            ${DOMAINS.map(d=>`<td style="color:${scoreColor(sc[d.id])};font-weight:700">${sc[d.id]}%</td>`).join('')}
+            <td style="font-weight:900;color:${scoreColor(t)}">${t}%</td></tr>`;
+        }).join('')}</tbody>
+      </table>
+    </div>` : ''}
+
+    <div class="source-cite">
+      <strong>Referensi:</strong> National Down Syndrome Society (NDSS, 2020) · Down Syndrome Medical Interest Group (DSMIG, 2021) ·
+      Pueschel SM (2000) Down Syndrome: A Guide for Parents · Chapman RS (2000) Language Development in DS ·
+      Kemenkes RI – Buku KIA · Denver Developmental Screening Test II · WHO Child Growth Standards
+    </div>
+  `;
+}
+
+function generateRecommendations(scores, assessment, child) {
+  const recs = [];
+  const low = Object.entries(scores).filter(([, v]) => v < 50).map(([k]) => k);
+  const mid = Object.entries(scores).filter(([, v]) => v >= 50 && v < 75).map(([k]) => k);
+  const high = Object.entries(scores).filter(([, v]) => v >= 75).map(([k]) => k);
+
+  if (low.includes('motorik_kasar')) recs.push({ icon:'🏃', title:'Fisioterapi Motorik Kasar', body:'Rekomendasikan program fisioterapi untuk memperkuat otot inti (core), keseimbangan, dan koordinasi. Latihan renang sangat disarankan untuk anak DS.' });
+  if (low.includes('motorik_halus')) recs.push({ icon:'✋', title:'Terapi Okupasi', body:'Intervensi terapi okupasi fokus pada pincer grasp, koordinasi mata-tangan, dan aktivitas fine motor seperti meronce, mewarnai, dan bermain playdough.' });
+  if (low.includes('wicara')) recs.push({ icon:'💬', title:'Terapi Wicara (Speech Therapy)', body:'Prioritaskan terapi wicara intensif. Pertimbangkan penggunaan AAC (Augmentative & Alternative Communication) seperti gambar/PECS untuk jembatan komunikasi.' });
+  if (low.includes('kognitif')) recs.push({ icon:'🧠', title:'Stimulasi Kognitif Terstruktur', body:'Program ABA (Applied Behavior Analysis) atau pembelajaran berbasis visual dapat membantu. Gunakan kartu bergambar, flashcard, dan game matching.' });
+  if (low.includes('sosial')) recs.push({ icon:'❤️', title:'Intervensi Sosial-Emosional', body:'Ikutkan anak dalam kelompok bermain terstruktur. Social stories dan role play sangat efektif untuk anak DS dalam memahami situasi sosial.' });
+  if (low.includes('kemandirian')) recs.push({ icon:'⭐', title:'Program Kemandirian (ADL Training)', body:'Latih aktivitas sehari-hari secara konsisten dengan teknik backward chaining (mulai dari langkah terakhir). Gunakan visual schedule di rumah.' });
+  if (mid.length > 0) recs.push({ icon:'📈', title:'Pertahankan & Tingkatkan Domain Berkembang', body:`Domain ${mid.map(k => DOMAINS.find(d=>d.id===k)?.label).join(', ')} menunjukkan perkembangan yang baik. Pertahankan stimulasi rutin dan tingkatkan frekuensi latihan.` });
+  if (high.length > 0) recs.push({ icon:'🏆', title:'Kekuatan yang Perlu Dikembangkan Lebih Lanjut', body:`Anak menunjukkan kemampuan baik di domain ${high.map(k => DOMAINS.find(d=>d.id===k)?.label).join(', ')}. Gunakan kekuatan ini sebagai jembatan untuk mendukung area lain yang masih berkembang.` });
+  recs.push({ icon:'💊', title:'Pemeriksaan Medis Rutin', body:'Anak DS memerlukan pemantauan medis rutin: fungsi tiroid (setiap 1-2 tahun), penglihatan, pendengaran, jantung, dan atlantoaxial instability sebelum aktivitas olahraga.' });
+  recs.push({ icon:'👨‍👩‍👧', title:'Keterlibatan Keluarga', body:'Orang tua dan keluarga adalah terapis utama. Konsistensi latihan di rumah memberikan dampak 3-5x lebih besar dibanding sesi terapi saja.' });
+  return recs;
+}
+
+function exportCSV() {
+  const child = getChild();
+  if (!child) return;
+  const assessments = DB.getAssessments().filter(a => a.child_id === child.id).sort((a, b) => new Date(a.tanggal) - new Date(b.tanggal));
+  if (!assessments.length) { toast('Tidak ada data untuk diekspor', 'error'); return; }
+  let csv = `Tanggal,Asesor,${DOMAINS.map(d => d.label).join(',')},Total\n`;
+  for (const a of assessments) {
+    const scores = {}; for (const d of DOMAINS) scores[d.id] = calcDomainScore(a.milestones?.[d.id]||{});
+    const tot = totalScore(scores);
+    csv += `${a.tanggal},${a.assessor||''},${DOMAINS.map(d => scores[d.id]).join(',')},${tot}\n`;
+  }
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = `dsgrow_${child.nama.replace(/ /g,'_')}.csv`; a.click();
+  URL.revokeObjectURL(url);
+  toast('CSV berhasil diunduh!', 'success');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  REFERENSI
+// ═══════════════════════════════════════════════════════════
+function renderReferensi() {
+  document.getElementById('ref-grid').innerHTML = DOMAINS.map(d => `
+    <div class="ref-card">
+      <div class="ref-header" style="background:${DOMAIN_COLORS[d.id] === '#0D0D0D' ? '#1A1A1A' : DOMAIN_COLORS[d.id]}20;color:${DOMAIN_COLORS[d.id] === '#FFD600' ? '#7A5F00' : DOMAIN_COLORS[d.id]}">
+        <span style="font-size:20px">${d.icon}</span>
+        <div>
+          <strong style="font-size:14px">${d.label}</strong>
+          <div style="font-size:10px;opacity:.7;margin-top:2px">${MILESTONES[d.id].length} milestone</div>
+        </div>
+      </div>
+      <div class="ref-header" style="background:${DOMAIN_COLORS[d.id] === '#FFD600' ? '#0D0D0D' : '#0D0D0D'};color:${DOMAIN_COLORS[d.id] === '#FFD600' ? '#FFD600' : '#FFD600'};padding:10px 18px;font-size:11px">
+        <div style="display:grid;grid-template-columns:65px 1fr 90px;gap:8px;width:100%;font-weight:800;text-transform:uppercase;letter-spacing:.5px">
+          <span>Usia (DS)</span><span>Milestone</span><span>Tipikal</span>
+        </div>
+      </div>
+      <div class="ref-body">
+        ${MILESTONES[d.id].map(m => `
+          <div class="ref-milestone-row">
+            <span class="ref-age">${m.ds_age}</span>
+            <div class="ref-text">
+              <strong>${m.name}</strong>
+              <div class="ref-typical">${m.desc}</div>
+              <div class="ref-typical" style="color:#888">Sumber: ${m.source}</div>
+            </div>
+            <div style="font-size:10px;color:var(--gray-500);text-align:right;padding-top:2px">${m.typical}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  MODAL & TOAST
+// ═══════════════════════════════════════════════════════════
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
+});
+
+function toast(msg, type = '') {
+  const container = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  container.appendChild(t);
+  setTimeout(() => t.remove(), 3200);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  DS GROWTH STANDARDS — Zemel et al. 2015 (Pediatrics)
+//  Age in months: 0,3,6,9,12,18,24,36,48,60,72,84,96,108,120,132,144,156,168,180,216
+// ═══════════════════════════════════════════════════════════
+const DS_GROWTH_AGES = [0,3,6,9,12,18,24,36,48,60,72,84,96,108,120,132,144,156,168,180,216];
+
+const DS_GROWTH = {
+  boys: {
+    height: {
+      p3:  [43.5,53.0,58.5,62.5,65.5,70.5,75.0,81.0,87.0,92.0,97.0,101.5,105.5,109.5,113.5,119.0,126.0,132.0,137.0,141.0,145.0],
+      p10: [45.0,55.0,60.5,64.5,67.5,72.5,77.5,83.5,89.5,95.0,100.0,104.5,108.5,113.0,117.0,123.5,130.5,137.0,142.0,146.0,150.0],
+      p25: [46.5,57.0,62.0,66.0,69.0,74.5,79.5,86.0,92.0,97.5,102.5,107.0,111.5,116.0,120.0,128.0,135.0,141.5,146.0,150.0,153.0],
+      p50: [48.0,58.5,64.0,68.0,71.0,76.5,81.5,88.0,94.0,99.5,104.5,109.0,113.5,118.0,122.0,131.5,138.0,144.0,148.5,152.5,155.0],
+      p75: [49.5,60.5,66.0,70.5,73.5,79.0,84.0,90.5,96.5,102.0,107.0,112.0,116.5,121.5,125.5,135.5,142.0,147.5,152.0,156.0,158.0],
+      p90: [51.0,62.0,67.5,72.0,75.0,81.0,86.0,93.0,99.0,104.5,109.5,114.5,119.0,124.0,128.5,139.0,145.5,151.0,155.5,159.5,162.0],
+      p97: [52.5,63.5,69.5,73.5,76.5,82.5,88.0,95.0,101.0,107.0,112.0,117.0,121.5,126.5,131.0,143.0,149.0,154.5,159.0,163.0,165.0],
+    },
+    weight: {
+      p3:  [2.3,4.2,5.6,6.7,7.7,9.3,10.8,12.5,14.2,16.0,18.0,20.5,23.5,26.5,29.5,34.5,40.0,46.0,51.0,54.0,58.0],
+      p10: [2.6,4.7,6.1,7.3,8.3,10.0,11.5,13.3,15.2,17.2,19.3,22.0,25.0,28.5,32.0,37.5,43.5,50.0,55.0,58.5,63.0],
+      p25: [2.8,5.0,6.4,7.7,8.8,10.6,12.1,14.1,16.1,18.3,20.5,23.2,26.5,30.0,33.5,39.0,45.5,52.0,57.0,60.5,65.5],
+      p50: [3.0,5.2,6.7,8.0,9.2,11.0,12.5,14.5,16.5,18.5,20.5,23.5,27.0,30.5,34.0,40.0,46.5,53.0,58.5,62.0,67.0],
+      p75: [3.3,5.6,7.1,8.5,9.7,11.7,13.2,15.4,17.6,20.0,22.5,25.5,29.0,33.0,37.0,43.5,50.0,57.0,63.0,67.0,73.5],
+      p90: [3.6,6.0,7.6,9.2,10.4,12.5,14.2,16.5,19.0,21.8,24.8,28.0,31.5,36.0,40.0,47.0,54.0,61.5,67.5,71.5,78.5],
+      p97: [3.9,6.5,8.2,9.9,11.1,13.4,15.3,17.8,20.5,23.5,27.0,30.5,34.5,39.0,43.5,51.0,59.0,67.0,73.0,77.5,84.0],
+    },
+    hc: {
+      p3:  [31.0,36.5,39.5,41.5,43.0,44.5,45.5,46.5,47.5,48.2,48.8,49.2,49.6,50.0,50.3,50.7,51.0,51.3,51.5,51.7,52.2],
+      p10: [32.0,37.5,40.5,42.5,44.0,45.5,46.5,47.5,48.5,49.2,49.8,50.2,50.6,51.0,51.3,51.7,52.0,52.3,52.5,52.7,53.2],
+      p25: [32.7,38.2,41.2,43.2,44.7,46.2,47.2,48.2,49.2,49.7,50.3,50.7,51.1,51.5,51.8,52.3,52.5,52.8,53.0,53.2,53.7],
+      p50: [33.5,38.5,41.5,43.5,45.0,46.5,47.5,48.5,49.5,50.0,50.5,51.0,51.5,52.0,52.3,52.8,53.0,53.3,53.5,53.7,54.2],
+      p75: [34.3,39.5,42.5,44.5,46.0,47.5,48.5,49.5,50.5,51.0,51.5,52.0,52.5,53.0,53.3,53.8,54.0,54.3,54.5,54.7,55.2],
+      p90: [35.0,40.5,43.5,45.5,47.0,48.5,49.5,50.5,51.3,51.8,52.3,52.8,53.3,53.8,54.1,54.7,55.0,55.3,55.5,55.7,56.2],
+      p97: [36.0,41.0,44.0,46.0,47.5,49.0,50.0,51.0,52.0,52.5,53.0,53.5,54.0,54.5,54.8,55.3,55.5,55.8,56.0,56.2,56.7],
+    },
+  },
+  girls: {
+    height: {
+      p3:  [42.5,51.5,57.0,60.5,63.0,68.0,73.0,79.0,85.0,90.0,94.5,99.0,103.0,107.5,111.5,118.5,126.5,130.5,133.0,134.5,136.5],
+      p10: [44.0,53.5,59.0,62.5,65.0,70.0,75.0,81.5,87.5,92.5,97.0,101.5,106.0,110.5,115.0,122.0,129.5,134.0,137.0,138.5,140.0],
+      p25: [45.5,55.0,60.5,64.0,67.0,72.0,77.0,83.5,89.5,94.5,98.5,103.5,108.0,112.5,117.5,124.5,131.5,136.5,139.5,141.0,142.0],
+      p50: [47.0,56.5,62.0,65.5,68.5,74.0,79.0,85.5,91.0,96.0,100.5,105.0,109.5,114.0,119.0,126.5,133.5,139.0,141.5,143.0,143.5],
+      p75: [48.5,58.0,63.5,67.5,70.5,76.5,81.5,88.0,93.5,98.5,103.0,107.5,112.0,116.5,122.0,129.0,135.5,141.5,144.0,145.5,145.5],
+      p90: [50.0,59.5,65.0,69.0,72.0,78.5,83.5,90.0,95.5,100.5,105.0,110.0,114.5,119.0,125.0,131.0,137.5,143.5,146.5,148.0,147.5],
+      p97: [51.5,61.0,66.5,70.5,73.5,80.5,85.5,92.0,97.5,103.0,107.5,112.5,117.0,121.5,128.0,133.5,140.0,146.0,149.5,151.0,150.0],
+    },
+    weight: {
+      p3:  [2.2,4.0,5.3,6.3,7.3,8.8,10.2,11.8,13.5,15.2,17.2,20.0,23.0,27.0,32.0,37.0,42.0,46.0,49.0,50.5,52.0],
+      p10: [2.5,4.4,5.8,6.8,7.8,9.4,10.9,12.7,14.5,16.5,18.8,22.0,25.5,30.0,35.5,41.0,46.0,50.0,53.0,54.5,56.0],
+      p25: [2.7,4.7,6.1,7.2,8.2,9.8,11.4,13.3,15.2,17.3,19.8,23.3,27.0,31.5,37.0,43.0,48.0,52.0,55.0,56.5,58.0],
+      p50: [2.9,4.8,6.2,7.4,8.5,10.0,11.5,13.5,15.5,17.5,19.5,23.0,27.0,31.5,37.0,43.0,48.0,52.0,55.0,56.5,58.0],
+      p75: [3.2,5.2,6.6,8.0,9.2,10.8,12.4,14.6,17.0,19.5,22.0,26.0,30.5,36.0,42.0,48.5,54.0,58.0,61.0,63.0,64.5],
+      p90: [3.5,5.6,7.1,8.6,9.9,11.7,13.5,16.0,18.8,21.7,24.8,29.5,34.5,41.0,47.5,54.0,60.0,64.0,67.0,69.0,70.5],
+      p97: [3.8,6.0,7.7,9.3,10.7,12.8,14.8,17.7,21.0,24.5,28.0,33.0,39.0,46.5,53.0,60.0,66.0,70.5,73.5,75.0,76.5],
+    },
+    hc: {
+      p3:  [30.0,35.5,38.5,40.5,42.0,43.5,44.5,45.5,46.3,47.0,47.5,48.0,48.5,49.0,49.3,49.8,50.0,50.3,50.5,50.7,51.2],
+      p10: [31.0,36.5,39.5,41.5,43.0,44.5,45.5,46.5,47.3,48.0,48.5,49.0,49.5,50.0,50.3,50.8,51.0,51.3,51.5,51.7,52.2],
+      p25: [31.7,37.2,40.2,42.2,43.7,45.2,46.2,47.2,48.0,48.5,49.0,49.5,50.0,50.5,50.8,51.3,51.5,51.8,52.0,52.2,52.7],
+      p50: [32.5,37.5,40.5,42.5,44.0,45.5,46.5,47.5,48.3,49.0,49.5,50.0,50.5,51.0,51.3,51.8,52.0,52.3,52.5,52.7,53.2],
+      p75: [33.3,38.5,41.5,43.5,45.0,46.5,47.5,48.5,49.3,50.0,50.5,51.0,51.5,52.0,52.3,52.8,53.0,53.3,53.5,53.7,54.2],
+      p90: [34.0,39.5,42.5,44.5,46.0,47.5,48.5,49.5,50.3,50.8,51.3,51.8,52.3,52.8,53.1,53.7,54.0,54.3,54.5,54.7,55.2],
+      p97: [35.0,40.0,43.0,45.0,46.5,48.0,49.0,50.0,50.8,51.5,52.0,52.5,53.0,53.5,53.8,54.3,54.5,54.8,55.0,55.2,55.7],
+    },
+  },
+};
+
+// ═══════════════════════════════════════════════════════════
+//  GROWTH HELPERS
+// ═══════════════════════════════════════════════════════════
+function getAgeMonths(tgl_lahir, measure_date) {
+  const born = new Date(tgl_lahir);
+  const meas = new Date(measure_date || Date.now());
+  const years = meas.getFullYear() - born.getFullYear();
+  const months = meas.getMonth() - born.getMonth();
+  const days = meas.getDate() - born.getDate();
+  return Math.max(0, Math.round(years * 12 + months + days / 30.5));
+}
+
+// Linear interpolation of percentile value at a given age (months)
+function interpGrowth(pctileArr, ageMo) {
+  const ages = DS_GROWTH_AGES;
+  if (ageMo <= ages[0]) return pctileArr[0];
+  if (ageMo >= ages[ages.length - 1]) return pctileArr[ages.length - 1];
+  for (let i = 0; i < ages.length - 1; i++) {
+    if (ageMo >= ages[i] && ageMo <= ages[i + 1]) {
+      const t = (ageMo - ages[i]) / (ages[i + 1] - ages[i]);
+      return pctileArr[i] + t * (pctileArr[i + 1] - pctileArr[i]);
+    }
+  }
+  return pctileArr[0];
+}
+
+// Returns percentile label for a given value vs DS standard
+function getPercentileStatus(value, ageMo, sex, type) {
+  const std = DS_GROWTH[sex === 'L' ? 'boys' : 'girls'][type];
+  const p3  = interpGrowth(std.p3,  ageMo);
+  const p10 = interpGrowth(std.p10, ageMo);
+  const p25 = interpGrowth(std.p25, ageMo);
+  const p50 = interpGrowth(std.p50, ageMo);
+  const p75 = interpGrowth(std.p75, ageMo);
+  const p90 = interpGrowth(std.p90, ageMo);
+  const p97 = interpGrowth(std.p97, ageMo);
+
+  let label, zone, color;
+  if (value < p3)        { label = '< P3';      zone = 'Sangat Rendah (di bawah DS normal)'; color = '#E50000'; }
+  else if (value < p10)  { label = 'P3–P10';    zone = 'Rendah';                             color = '#FF6B00'; }
+  else if (value < p25)  { label = 'P10–P25';   zone = 'Bawah Normal';                       color = '#C9A900'; }
+  else if (value < p50)  { label = 'P25–P50';   zone = 'Normal Bawah Median';                color = '#FFD600'; }
+  else if (value < p75)  { label = 'P50–P75';   zone = 'Normal Atas Median';                 color = '#4CAF50'; }
+  else if (value < p90)  { label = 'P75–P90';   zone = 'Tinggi Normal';                      color = '#00C851'; }
+  else if (value < p97)  { label = 'P90–P97';   zone = 'Tinggi';                             color = '#2563EB'; }
+  else                   { label = '> P97';      zone = 'Sangat Tinggi (di atas DS normal)'; color = '#7C3AED'; }
+
+  return { label, zone, color, p3, p10, p25, p50, p75, p90, p97 };
+}
+
+// ═══════════════════════════════════════════════════════════
+//  GROWTH CRUD
+// ═══════════════════════════════════════════════════════════
+function addGrowthRecord() {
+  const child = getChild();
+  if (!child) { toast('Pilih anak terlebih dahulu!', 'error'); return; }
+  const date    = document.getElementById('tumbuh-date').value;
+  const height  = parseFloat(document.getElementById('tumbuh-height').value);
+  const weight  = parseFloat(document.getElementById('tumbuh-weight').value);
+  const hc      = parseFloat(document.getElementById('tumbuh-hc').value) || null;
+  const measurer= document.getElementById('tumbuh-measurer').value;
+  const note    = document.getElementById('tumbuh-note').value;
+
+  if (!date) { toast('Masukkan tanggal pengukuran!', 'error'); return; }
+  if (!height && !weight) { toast('Masukkan minimal tinggi atau berat badan!', 'error'); return; }
+  if (height && (height < 30 || height > 220)) { toast('Tinggi badan tidak valid (30–220 cm)', 'error'); return; }
+  if (weight && (weight < 1 || weight > 200))  { toast('Berat badan tidak valid (1–200 kg)', 'error'); return; }
+
+  const ageMo = getAgeMonths(child.tgl_lahir, date);
+  const record = {
+    id: uid(), child_id: child.id, date, ageMo,
+    height: height || null, weight: weight || null, hc: hc || null,
+    bmi: (height && weight) ? +(weight / ((height / 100) ** 2)).toFixed(1) : null,
+    measurer, note,
+    created_at: new Date().toISOString(),
+  };
+  const data = DB.getGrowthData();
+  data.push(record);
+  DB.saveGrowthData(data);
+  // Clear inputs
+  ['tumbuh-height','tumbuh-weight','tumbuh-hc','tumbuh-measurer','tumbuh-note'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  toast('Data pertumbuhan disimpan!', 'success');
+  renderPertumbuhan();
+}
+
+function deleteGrowthRecord(id) {
+  if (!confirm('Hapus data pengukuran ini?')) return;
+  DB.saveGrowthData(DB.getGrowthData().filter(r => r.id !== id));
+  toast('Data dihapus', 'success');
+  renderPertumbuhan();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  RENDER PERTUMBUHAN
+// ═══════════════════════════════════════════════════════════
+function renderPertumbuhan() {
+  const child = getChild();
+  const noChild  = document.getElementById('tumbuh-no-child');
+  const content  = document.getElementById('tumbuh-content');
+
+  if (!child) {
+    noChild.style.display = 'block'; content.style.display = 'none'; return;
+  }
+  noChild.style.display = 'none'; content.style.display = 'block';
+
+  // Set default date
+  const di = document.getElementById('tumbuh-date');
+  if (!di.value) di.value = new Date().toISOString().split('T')[0];
+
+  const records = DB.getGrowthData()
+    .filter(r => r.child_id === child.id)
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+  const sex = child.jenis_kelamin; // 'L' or 'P'
+
+  // ── STAT CARDS ──────────────────────────────────────────
+  const latest = records[records.length - 1] || null;
+  const prev   = records[records.length - 2] || null;
+  let statsHtml = '';
+  const ageMo = latest ? latest.ageMo : getAgeMonths(child.tgl_lahir, new Date().toISOString().split('T')[0]);
+
+  if (latest?.height) {
+    const ps = getPercentileStatus(latest.height, ageMo, sex, 'height');
+    const delta = prev?.height ? (latest.height - prev.height).toFixed(1) : null;
+    statsHtml += `<div class="stat-card" style="border-left:5px solid ${ps.color}">
+      <div class="stat-card-icon" style="background:${ps.color}20">📏</div>
+      <div class="stat-value">${latest.height} <small style="font-size:14px;font-weight:700">cm</small></div>
+      <div class="stat-label">Tinggi Badan</div>
+      <div class="stat-sub">
+        <span style="background:${ps.color}18;color:${ps.color};padding:2px 8px;border-radius:4px;font-weight:800;font-size:11px">${ps.label}</span>
+        ${delta !== null ? `<br>${parseFloat(delta) > 0 ? '▲' : '▼'} ${Math.abs(delta)} cm dari ukur sebelumnya` : ''}
+      </div>
+    </div>`;
+  }
+  if (latest?.weight) {
+    const ps = getPercentileStatus(latest.weight, ageMo, sex, 'weight');
+    const delta = prev?.weight ? (latest.weight - prev.weight).toFixed(1) : null;
+    statsHtml += `<div class="stat-card" style="border-left:5px solid ${ps.color}">
+      <div class="stat-card-icon" style="background:${ps.color}20">⚖️</div>
+      <div class="stat-value">${latest.weight} <small style="font-size:14px;font-weight:700">kg</small></div>
+      <div class="stat-label">Berat Badan</div>
+      <div class="stat-sub">
+        <span style="background:${ps.color}18;color:${ps.color};padding:2px 8px;border-radius:4px;font-weight:800;font-size:11px">${ps.label}</span>
+        ${delta !== null ? `<br>${parseFloat(delta) > 0 ? '▲' : '▼'} ${Math.abs(delta)} kg dari ukur sebelumnya` : ''}
+      </div>
+    </div>`;
+  }
+  if (latest?.hc) {
+    const ps = getPercentileStatus(latest.hc, ageMo, sex, 'hc');
+    statsHtml += `<div class="stat-card" style="border-left:5px solid ${ps.color}">
+      <div class="stat-card-icon" style="background:${ps.color}20">🔵</div>
+      <div class="stat-value">${latest.hc} <small style="font-size:14px;font-weight:700">cm</small></div>
+      <div class="stat-label">Lingkar Kepala</div>
+      <div class="stat-sub"><span style="background:${ps.color}18;color:${ps.color};padding:2px 8px;border-radius:4px;font-weight:800;font-size:11px">${ps.label}</span></div>
+    </div>`;
+  }
+  if (latest?.bmi) {
+    const bmiLabel = latest.bmi < 18.5 ? 'Kurus' : latest.bmi < 25 ? 'Normal' : latest.bmi < 30 ? 'Gemuk' : 'Obesitas';
+    const bmiColor = latest.bmi < 18.5 ? '#2563EB' : latest.bmi < 25 ? '#00C851' : latest.bmi < 30 ? '#FFD600' : '#E50000';
+    statsHtml += `<div class="stat-card" style="border-left:5px solid ${bmiColor}">
+      <div class="stat-card-icon" style="background:${bmiColor}15">📊</div>
+      <div class="stat-value">${latest.bmi} <small style="font-size:14px;font-weight:700">BMI</small></div>
+      <div class="stat-label">Indeks Massa Tubuh</div>
+      <div class="stat-sub"><span style="background:${bmiColor}18;color:${bmiColor};padding:2px 8px;border-radius:4px;font-weight:800;font-size:11px">${bmiLabel}</span></div>
+    </div>`;
+  }
+  if (!latest) {
+    statsHtml = `<div class="stat-card yellow"><div class="stat-card-icon">📏</div><div class="stat-value">—</div><div class="stat-label">Belum ada data</div><div class="stat-sub">Masukkan pengukuran pertama</div></div>`;
+  }
+  document.getElementById('tumbuh-stats').innerHTML = statsHtml;
+
+  // ── PERCENTILE STATUS BOX ────────────────────────────────
+  if (latest) {
+    let boxHtml = `<div style="background:var(--white);border:2px solid var(--gray-200);border-radius:10px;padding:16px 20px">
+      <div style="font-size:13px;font-weight:900;margin-bottom:12px">📍 Status Persentil Pengukuran Terakhir
+        <span style="font-size:11px;font-weight:600;color:var(--gray-500)">(${formatDate(latest.date)}, usia ${latest.ageMo} bulan)</span>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:12px">`;
+    const typeMap = { height: ['Tinggi Badan', '📏'], weight: ['Berat Badan', '⚖️'], hc: ['Lingkar Kepala', '🔵'] };
+    for (const [type, [label, icon]] of Object.entries(typeMap)) {
+      if (!latest[type]) continue;
+      const ps = getPercentileStatus(latest[type], ageMo, sex, type);
+      boxHtml += `<div style="flex:1;min-width:200px;background:${ps.color}08;border:2px solid ${ps.color}30;border-radius:8px;padding:12px">
+        <div style="font-size:11px;font-weight:800;color:var(--gray-500);text-transform:uppercase;margin-bottom:4px">${icon} ${label}</div>
+        <div style="font-size:20px;font-weight:900;color:${ps.color}">${latest[type]} cm/kg</div>
+        <div style="font-size:12px;font-weight:800;color:${ps.color};margin-top:4px">${ps.label} — ${ps.zone}</div>
+        <div style="font-size:10px;color:var(--gray-500);margin-top:6px;line-height:1.5">
+          P3: ${ps.p3.toFixed(1)} · P10: ${ps.p10.toFixed(1)} · P25: ${ps.p25.toFixed(1)}<br>
+          <strong>P50 (median): ${ps.p50.toFixed(1)}</strong> · P75: ${ps.p75.toFixed(1)} · P90: ${ps.p90.toFixed(1)} · P97: ${ps.p97.toFixed(1)}
+        </div>
+      </div>`;
+    }
+    boxHtml += `</div></div>`;
+    document.getElementById('tumbuh-percentile-box').innerHTML = boxHtml;
+  } else {
+    document.getElementById('tumbuh-percentile-box').innerHTML = '';
+  }
+
+  // ── CHART BUILDER ────────────────────────────────────────
+  // Build standard curve datasets for a given type
+  function buildStdDatasets(type) {
+    const std = DS_GROWTH[sex === 'L' ? 'boys' : 'girls'][type];
+    const pctiles = [
+      { key: 'p3',  label: 'P3',  color: '#E50000', dash: [4,3], width: 1 },
+      { key: 'p10', label: 'P10', color: '#FF8C00', dash: [3,3], width: 1 },
+      { key: 'p25', label: 'P25', color: '#C9A900', dash: [3,2], width: 1 },
+      { key: 'p50', label: 'P50 (Median)', color: '#0D0D0D', dash: [],     width: 2.5 },
+      { key: 'p75', label: 'P75', color: '#2563EB', dash: [3,2], width: 1 },
+      { key: 'p90', label: 'P90', color: '#16A34A', dash: [3,3], width: 1 },
+      { key: 'p97', label: 'P97', color: '#7C3AED', dash: [4,3], width: 1 },
+    ];
+    return pctiles.map(p => ({
+      label: p.label,
+      data: DS_GROWTH_AGES.map((age, i) => ({ x: age, y: std[p.key][i] })),
+      borderColor: p.color,
+      borderWidth: p.width,
+      borderDash: p.dash,
+      pointRadius: 0,
+      fill: false,
+      tension: 0.4,
+    }));
+  }
+
+  function buildChildDataset(type, label, color) {
+    const pts = records.filter(r => r[type] !== null && r[type] !== undefined)
+      .map(r => ({ x: r.ageMo, y: r[type] }));
+    return {
+      label: label + ' (Anak)',
+      data: pts,
+      borderColor: '#FFD600',
+      backgroundColor: '#FFD600',
+      pointBackgroundColor: color,
+      pointBorderColor: '#0D0D0D',
+      pointRadius: 7,
+      pointHoverRadius: 9,
+      borderWidth: 2.5,
+      fill: false,
+      tension: 0.3,
+      borderColor: '#FFD600',
+    };
+  }
+
+  const chartOpts = (yLabel) => ({
+    responsive: true, maintainAspectRatio: false,
+    scales: {
+      x: {
+        type: 'linear', min: 0,
+        title: { display: true, text: 'Usia (bulan)', font: { weight: 'bold', size: 11 } },
+        ticks: {
+          callback: v => v < 24 ? v + 'bln' : (v % 12 === 0 ? (v/12) + 'thn' : ''),
+          maxTicksLimit: 20, font: { size: 10 },
+        }
+      },
+      y: { title: { display: true, text: yLabel, font: { weight: 'bold', size: 11 } }, ticks: { font: { size: 10 } } }
+    },
+    plugins: {
+      legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 12, usePointStyle: true } },
+      tooltip: {
+        callbacks: {
+          title: ctx => `Usia: ${ctx[0].parsed.x} bulan`,
+          label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y}`,
+        }
+      }
+    }
+  });
+
+  function withShowLine(datasets) {
+    return datasets.map(d => ({ ...d, showLine: true }));
+  }
+
+  // Height chart
+  mkChart('chart-height-age', {
+    type: 'scatter',
+    data: { datasets: withShowLine([...buildStdDatasets('height'), buildChildDataset('height', 'Tinggi', '#E50000')]) },
+    options: chartOpts('Tinggi Badan (cm)'),
+  });
+
+  // Weight chart
+  mkChart('chart-weight-age', {
+    type: 'scatter',
+    data: { datasets: withShowLine([...buildStdDatasets('weight'), buildChildDataset('weight', 'Berat', '#FFD600')]) },
+    options: chartOpts('Berat Badan (kg)'),
+  });
+
+  // HC chart
+  const hcRecords = records.filter(r => r.hc);
+  if (hcRecords.length > 0) {
+    mkChart('chart-hc-age', {
+      type: 'scatter',
+      data: { datasets: withShowLine([...buildStdDatasets('hc'), buildChildDataset('hc', 'Lingkar Kepala', '#2563EB')]) },
+      options: chartOpts('Lingkar Kepala (cm)'),
+    });
+  } else {
+    destroyChart('chart-hc-age');
+    const ctx = document.getElementById('chart-hc-age');
+    if (ctx) ctx.getContext('2d').clearRect(0, 0, ctx.width, ctx.height);
+    const wrap = ctx?.parentElement;
+    if (wrap) wrap.innerHTML = `<div class="empty-state" style="padding:30px"><div class="empty-icon" style="font-size:32px">🔵</div><p>Belum ada data lingkar kepala</p></div><canvas id="chart-hc-age"></canvas>`;
+  }
+
+  // BMI chart
+  const bmiRecords = records.filter(r => r.bmi);
+  mkChart('chart-bmi', {
+    type: 'line',
+    data: {
+      labels: bmiRecords.map(r => `${r.ageMo} bln`),
+      datasets: [{
+        label: 'BMI',
+        data: bmiRecords.map(r => r.bmi),
+        borderColor: '#E50000',
+        backgroundColor: 'rgba(229,0,0,.08)',
+        pointBackgroundColor: '#FFD600',
+        pointBorderColor: '#0D0D0D',
+        pointRadius: 6, fill: true, tension: 0.3, borderWidth: 2.5,
+      }, {
+        label: 'Normal Bawah (18.5)',
+        data: bmiRecords.map(() => 18.5),
+        borderColor: '#2563EB', borderWidth: 1.5,
+        borderDash: [4, 3], pointRadius: 0, fill: false,
+      }, {
+        label: 'Normal Atas (25)',
+        data: bmiRecords.map(() => 25),
+        borderColor: '#16A34A', borderWidth: 1.5,
+        borderDash: [4, 3], pointRadius: 0, fill: false,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 14 } } },
+      scales: { y: { title: { display: true, text: 'BMI (kg/m²)', font: { weight: 'bold', size: 11 } } } }
+    }
+  });
+
+  // ── HISTORY TABLE ────────────────────────────────────────
+  if (!records.length) {
+    document.getElementById('tumbuh-table').innerHTML = `<div class="empty-state" style="padding:30px">
+      <div class="empty-icon">📏</div><h3>Belum ada data pengukuran</h3>
+      <p>Isi form di atas untuk menambahkan data pertama</p>
+    </div>`;
+    return;
+  }
+  const sortedDesc = [...records].reverse();
+  document.getElementById('tumbuh-table').innerHTML = `
+    <table class="milestone-table">
+      <thead>
+        <tr>
+          <th>Tanggal</th><th>Usia</th>
+          <th>TB (cm)</th><th>Status TB</th>
+          <th>BB (kg)</th><th>Status BB</th>
+          <th>LK (cm)</th><th>BMI</th>
+          <th>Diukur oleh</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        ${sortedDesc.map(r => {
+          const tbs = r.height ? getPercentileStatus(r.height, r.ageMo, sex, 'height') : null;
+          const bbs = r.weight ? getPercentileStatus(r.weight, r.ageMo, sex, 'weight') : null;
+          const hcs = r.hc    ? getPercentileStatus(r.hc,     r.ageMo, sex, 'hc')     : null;
+          return `<tr>
+            <td style="font-weight:700">${formatDate(r.date)}</td>
+            <td style="font-size:11px;color:var(--gray-500)">${r.ageMo} bln</td>
+            <td style="font-weight:700">${r.height ?? '—'}</td>
+            <td>${tbs ? `<span style="font-size:11px;font-weight:800;color:${tbs.color}">${tbs.label}</span>` : '—'}</td>
+            <td style="font-weight:700">${r.weight ?? '—'}</td>
+            <td>${bbs ? `<span style="font-size:11px;font-weight:800;color:${bbs.color}">${bbs.label}</span>` : '—'}</td>
+            <td style="font-weight:700">${r.hc ?? '—'}</td>
+            <td style="font-weight:700">${r.bmi ?? '—'}</td>
+            <td style="font-size:12px">${r.measurer || '—'}</td>
+            <td><button class="btn btn-danger btn-sm" onclick="deleteGrowthRecord('${r.id}')">🗑</button></td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PDF EXPORT
+// ═══════════════════════════════════════════════════════════
+async function downloadPDF(sectionId, title, spinnerId) {
+  const child = getChild();
+  const el = document.getElementById(sectionId);
+  if (!el) { toast('Konten tidak ditemukan', 'error'); return; }
+
+  // Show spinner
+  const spinner = document.getElementById(spinnerId);
+  if (spinner) spinner.classList.add('active');
+  const btn = spinner?.closest('.pdf-action-bar')?.querySelector('.btn-pdf');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Memproses...'; }
+
+  try {
+    // Wait a tick so UI updates
+    await new Promise(r => setTimeout(r, 80));
+
+    const canvas = await html2canvas(el, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#F4F4F4',
+      logging: false,
+      ignoreElements: node => node.classList?.contains('no-print'),
+    });
+
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+    const pageW  = pdf.internal.pageSize.getWidth();
+    const pageH  = pdf.internal.pageSize.getHeight();
+    const margin = 8; // mm padding
+    const imgW   = pageW - margin * 2;
+    const imgH   = (canvas.height * imgW) / canvas.width;
+    const imgData = canvas.toDataURL('image/png');
+
+    // Header bar on first page
+    pdf.setFillColor(13, 13, 13);          // black
+    pdf.rect(0, 0, pageW, 12, 'F');
+    pdf.setFillColor(255, 214, 0);         // yellow accent strip
+    pdf.rect(0, 10, pageW, 2, 'F');
+    pdf.setTextColor(255, 214, 0);
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('DS-GROW', margin, 7.5);
+    pdf.setTextColor(200, 200, 200);
+    pdf.setFontSize(8);
+    const titleMap = {
+      dashboard: 'Dashboard Tumbuh Kembang',
+      riwayat:   'Riwayat Penilaian',
+      statistik: 'Statistik & Grafik',
+      pertumbuhan: 'Data Pertumbuhan (TB/BB/LK)',
+    };
+    const pageTitle = titleMap[title] || title;
+    pdf.text(`${pageTitle}  |  ${child?.nama || ''}  |  ${new Date().toLocaleDateString('id-ID')}`, margin + 22, 7.5);
+
+    const startY = 14; // content starts below header
+    const contentH = pageH - startY - margin;
+
+    // Split into pages
+    let renderedH = 0;
+    let page = 0;
+    while (renderedH < imgH) {
+      if (page > 0) pdf.addPage();
+      const sliceH = Math.min(contentH, imgH - renderedH);
+      // Crop a horizontal slice of the canvas
+      const sliceCanvas = document.createElement('canvas');
+      const scale = canvas.width / imgW;
+      sliceCanvas.width  = canvas.width;
+      sliceCanvas.height = Math.round(sliceH * scale);
+      const ctx = sliceCanvas.getContext('2d');
+      ctx.drawImage(canvas, 0, -renderedH * scale);
+      pdf.addImage(sliceCanvas.toDataURL('image/png'), 'PNG', margin, page === 0 ? startY : margin, imgW, sliceH);
+      renderedH += sliceH;
+      page++;
+    }
+
+    // Footer on every page
+    const totalPages = pdf.internal.getNumberOfPages();
+    for (let p = 1; p <= totalPages; p++) {
+      pdf.setPage(p);
+      pdf.setFillColor(13, 13, 13);
+      pdf.rect(0, pageH - 8, pageW, 8, 'F');
+      pdf.setTextColor(150, 150, 150);
+      pdf.setFontSize(7);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text('DS-GROW | Standar: Zemel et al. 2015 · NDSS 2020 · Kemenkes RI', margin, pageH - 2.5);
+      pdf.text(`Hal ${p} / ${totalPages}`, pageW - margin - 18, pageH - 2.5);
+    }
+
+    const safe = (child?.nama || 'anak').replace(/\s+/g, '_');
+    const dateStr = new Date().toISOString().split('T')[0];
+    pdf.save(`dsgrow_${title}_${safe}_${dateStr}.pdf`);
+    toast('PDF berhasil diunduh!', 'success');
+  } catch (e) {
+    console.error(e);
+    toast('Gagal membuat PDF: ' + e.message, 'error');
+  } finally {
+    if (spinner) spinner.classList.remove('active');
+    if (btn) { btn.disabled = false; btn.innerHTML = '⬇ Download PDF'; }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  AUTH — Google OAuth (Google Identity Services)
+// ═══════════════════════════════════════════════════════════
+const GOOGLE_CLIENT_ID = '1099379056633-v7e3kc9gtpmbkv011g5k2cdlid038vv9.apps.googleusercontent.com'; // ← ganti dengan Client ID Anda
+
+const AUTH_KEY = 'dsgrow_user';
+
+function parseJwt(token) {
+  try {
+    const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(atob(base64));
+  } catch { return null; }
+}
+
+function handleCredentialResponse(response) {
+  const payload = parseJwt(response.credential);
+  if (!payload) { toast('Login gagal, coba lagi.', 'error'); return; }
+
+  const user = {
+    id:      payload.sub,
+    name:    payload.name,
+    email:   payload.email,
+    picture: payload.picture,
+    token:   response.credential,
+  };
+  localStorage.setItem(AUTH_KEY, JSON.stringify(user));
+  showApp(user);
+}
+
+function signInWithGoogle() {
+  if (typeof google === 'undefined') {
+    toast('Google SDK belum dimuat, coba refresh halaman.', 'error');
+    return;
+  }
+  google.accounts.id.prompt();
+}
+
+function renderGoogleButton() {
+  const container = document.getElementById('google-btn-container');
+  const fallback  = document.getElementById('btn-google-fallback');
+  if (!container || typeof google === 'undefined') {
+    if (fallback) fallback.style.display = 'flex';
+    return;
+  }
+  try {
+    google.accounts.id.renderButton(container, {
+      theme: 'outline',
+      size: 'large',
+      width: 340,
+      text: 'continue_with',
+      locale: 'id',
+    });
+  } catch {
+    container.style.display = 'none';
+    if (fallback) fallback.style.display = 'flex';
+  }
+}
+
+function signOut() {
+  if (typeof google !== 'undefined') {
+    google.accounts.id.disableAutoSelect();
+    const user = getStoredUser();
+    if (user?.email) google.accounts.id.revoke(user.email, () => {});
+  }
+  localStorage.removeItem(AUTH_KEY);
+  document.getElementById('login-screen').classList.remove('hidden');
+  document.getElementById('app').style.display = 'none';
+  toast('Anda telah keluar.', 'success');
+}
+
+function getStoredUser() {
+  try { return JSON.parse(localStorage.getItem(AUTH_KEY)); }
+  catch { return null; }
+}
+
+function showApp(user) {
+  // Hide login, show app
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('app').style.display = 'flex';
+
+  // Update topbar user info
+  const nameEl    = document.getElementById('topbar-user-name');
+  const imgEl     = document.getElementById('topbar-avatar-img');
+  const fallback  = document.getElementById('topbar-avatar-fallback');
+  const firstName = (user.name || '').split(' ')[0];
+  nameEl.textContent = firstName || user.email;
+
+  if (user.picture) {
+    imgEl.src = user.picture;
+    imgEl.style.display = 'block';
+    fallback.style.display = 'none';
+  } else {
+    fallback.textContent = (user.name?.[0] || '?').toUpperCase();
+  }
+
+  init();
+}
+
+function setupGIS() {
+  google.accounts.id.initialize({
+    client_id:   GOOGLE_CLIENT_ID,
+    callback:    handleCredentialResponse,
+    auto_select: false,
+    cancel_on_tap_outside: false,
+  });
+  renderGoogleButton();
+}
+
+function initAuth() {
+  // Hide app until authenticated
+  document.getElementById('app').style.display = 'none';
+
+  const stored = getStoredUser();
+  if (stored?.token) {
+    showApp(stored);
+    return;
+  }
+
+  // Initialize Google Identity Services once script is ready
+  if (typeof google !== 'undefined') {
+    setupGIS();
+  } else {
+    const interval = setInterval(() => {
+      if (typeof google !== 'undefined') {
+        clearInterval(interval);
+        setupGIS();
+      }
+    }, 200);
+    // Give up after 10s and show fallback button
+    setTimeout(() => {
+      clearInterval(interval);
+      const fb = document.getElementById('btn-google-fallback');
+      if (fb) fb.style.display = 'flex';
+    }, 10000);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════
+function init() {
+  refreshChildSelector();
+  const children = DB.getChildren();
+  if (children.length > 0 && !selectedChildId) {
+    selectedChildId = children[0].id;
+    document.getElementById('child-select').value = selectedChildId;
+  }
+  renderView('dashboard');
+}
+
+initAuth();
+</script>
+</body>
+</html>
